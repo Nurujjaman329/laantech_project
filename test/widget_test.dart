@@ -1,30 +1,51 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:mocktail/mocktail.dart';
+import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
+import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_bloc.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_event.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_state.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_event.dart';
+import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_state.dart';
 import 'package:laantech_task/main.dart';
 
+class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+class MockTransferBloc extends MockBloc<TransferEvent, TransferState> implements TransferBloc {}
+class MockFileListBloc extends MockBloc<FileListEvent, FileListState> implements FileListBloc {}
+
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  late MockAuthBloc mockAuthBloc;
+  late MockTransferBloc mockTransferBloc;
+  late MockFileListBloc mockFileListBloc;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  setUp(() {
+    mockAuthBloc = MockAuthBloc();
+    mockTransferBloc = MockTransferBloc();
+    mockFileListBloc = MockFileListBloc();
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('renders LoginScreen when AuthState is AuthUnauthenticated', (WidgetTester tester) async {
+    when(() => mockAuthBloc.state).thenReturn(const AuthUnauthenticated());
+    when(() => mockTransferBloc.state).thenReturn(const TransferState());
+    when(() => mockFileListBloc.state).thenReturn(const FileListInitial());
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: mockAuthBloc),
+          BlocProvider<TransferBloc>.value(value: mockTransferBloc),
+          BlocProvider<FileListBloc>.value(value: mockFileListBloc),
+        ],
+        child: const PosTransferApp(),
+      ),
+    );
+
+    expect(find.text('POS Transfer Portal'), findsOneWidget);
+    expect(find.text('Sign In'), findsOneWidget);
   });
 }
