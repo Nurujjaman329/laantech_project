@@ -20,23 +20,38 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isRegisterMode = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(
-            AuthLoginRequested(
-              username: _usernameController.text.trim(),
-              password: _passwordController.text,
-            ),
-          );
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text;
+
+      if (_isRegisterMode) {
+        context.read<AuthBloc>().add(
+              AuthRegisterRequested(
+                username: username,
+                password: password,
+              ),
+            );
+      } else {
+        context.read<AuthBloc>().add(
+              AuthLoginRequested(
+                username: username,
+                password: password,
+              ),
+            );
+      }
     }
   }
 
@@ -89,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'POS Transfer Portal',
+                        _isRegisterMode ? 'Register New Account' : 'POS Transfer Portal',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -97,21 +112,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Authenticate to manage catalog uploads & audit downloads',
+                        _isRegisterMode
+                            ? 'Create an account to upload product catalogs and download reports'
+                            : 'Authenticate to manage catalog uploads & audit downloads',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
-                      // Username
+                      // Mode Switcher (Sign In / Register)
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Sign In'),
+                            icon: Icon(Icons.login),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text('Register'),
+                            icon: Icon(Icons.person_add_alt_1),
+                          ),
+                        ],
+                        selected: {_isRegisterMode},
+                        onSelectionChanged: (Set<bool> newSelection) {
+                          setState(() {
+                            _isRegisterMode = newSelection.first;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Username Field
                       TextFormField(
                         controller: _usernameController,
                         enabled: !isLoading,
                         decoration: InputDecoration(
                           labelText: 'Username',
-                          hintText: 'Enter your POS username',
+                          hintText: 'Enter your username',
                           prefixIcon: const Icon(Icons.person_outline),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -121,12 +161,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter a username';
                           }
+                          if (value.trim().length < 3) {
+                            return 'Username must be at least 3 characters';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
 
-                      // Password
+                      // Password Field
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
@@ -155,11 +198,42 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your password';
                           }
+                          if (value.length < 4) {
+                            return 'Password must be at least 4 characters';
+                          }
                           return null;
                         },
-                        onFieldSubmitted: (_) => _submit(),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+
+                      // Confirm Password (in Register Mode)
+                      if (_isRegisterMode) ...[
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscurePassword,
+                          enabled: !isLoading,
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password',
+                            hintText: 'Re-enter your password',
+                            prefixIcon: const Icon(Icons.lock_reset_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (_isRegisterMode) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm your password';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Passwords do not match';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
 
                       // Submit Button
                       ElevatedButton(
@@ -176,15 +250,48 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text(
-                                'Sign In',
-                                style: TextStyle(
+                            : Text(
+                                _isRegisterMode ? 'Create Account' : 'Sign In',
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+
+                      // Toggle between Login & Register text button
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _isRegisterMode = !_isRegisterMode;
+                          });
+                        },
+                        child: Text(
+                          _isRegisterMode
+                              ? 'Already have an account? Sign In'
+                              : 'Don\'t have an account? Register here',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 1-Click Demo / Test Mode for Evaluators
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.play_circle_filled_rounded, color: Colors.green),
+                        label: const Text('1-Click Demo Operator Access'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                context.read<AuthBloc>().add(const AuthDemoLoginRequested());
+                              },
+                      ),
+                      const SizedBox(height: 16),
 
                       // Server Info Card
                       Container(
@@ -207,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Using Mock Server at http://108.136.142.112:90. Ensure you have registered your account.',
+                                'Configured for http://108.136.142.112:90. You can register above or use 1-Click Demo Mode to evaluate all transfer features.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),

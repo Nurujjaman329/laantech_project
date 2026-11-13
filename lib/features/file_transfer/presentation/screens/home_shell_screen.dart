@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
+
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_state.dart';
 import '../widgets/persistent_transfer_banner.dart';
 import '../widgets/persistent_transfer_sheet.dart';
+import 'dashboard_screen.dart';
 import 'download_screen.dart';
+import 'settings_screen.dart';
+import 'transfer_manager_screen.dart';
 import 'upload_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
@@ -20,14 +25,26 @@ class HomeShellScreen extends StatefulWidget {
 class _HomeShellScreenState extends State<HomeShellScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    UploadScreen(),
-    DownloadScreen(),
-  ];
+  void _navigateToTab(int index) {
+    if (index >= 0 && index < 5) {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final screens = [
+      DashboardScreen(onNavigateToTab: _navigateToTab),
+      const UploadScreen(),
+      const DownloadScreen(),
+      const TransferManagerScreen(),
+      const SettingsScreen(),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -39,35 +56,61 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
             }
             return Row(
               children: [
-                const Icon(Icons.storefront_rounded, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  username,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.storefront_rounded,
+                    size: 16,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      username,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Store #104 • Online',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             );
           },
         ),
         actions: [
-          // Transfer Dashboard Shortcut
+          // Transfer Quick Sheet Shortcut
           BlocBuilder<TransferBloc, TransferState>(
             builder: (context, state) {
-              final count = state.activeTasks.length;
+              final activeCount = state.activeTasks.length;
               return IconButton(
                 icon: Badge(
-                  isLabelVisible: count > 0,
-                  label: Text('$count'),
-                  child: const Icon(Icons.sync_rounded),
+                  isLabelVisible: activeCount > 0,
+                  backgroundColor: colorScheme.error,
+                  label: Text('$activeCount'),
+                  child: Icon(
+                    activeCount > 0 ? Icons.sync_rounded : Icons.swap_vert_circle_outlined,
+                    color: activeCount > 0 ? colorScheme.primary : colorScheme.onSurface,
+                  ),
                 ),
-                tooltip: 'Transfer Dashboard',
+                tooltip: 'Quick Transfers Sheet',
                 onPressed: () => PersistentTransferSheet.show(context),
               );
             },
           ),
           // Logout Button
           IconButton(
-            icon: const Icon(Icons.logout_rounded),
+            icon: Icon(Icons.logout_rounded, color: colorScheme.onSurfaceVariant),
             tooltip: 'Logout',
             onPressed: () {
               context.read<AuthBloc>().add(const AuthLogoutRequested());
@@ -79,31 +122,59 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         children: [
           IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: screens,
           ),
-          // Global Persistent Transfer Banner
+          // Global Persistent Transfer Banner visible across all screens
           const PersistentTransferBanner(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+      bottomNavigationBar: BlocBuilder<TransferBloc, TransferState>(
+        builder: (context, state) {
+          final activeCount = state.activeTasks.length;
+
+          return NavigationBar(
+            selectedIndex: _currentIndex,
+            elevation: 2,
+            backgroundColor: colorScheme.surface,
+            indicatorColor: colorScheme.primaryContainer,
+            onDestinationSelected: _navigateToTab,
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard_rounded),
+                label: 'Dashboard',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.cloud_upload_outlined),
+                selectedIcon: Icon(Icons.cloud_upload_rounded),
+                label: 'Upload',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.cloud_download_outlined),
+                selectedIcon: Icon(Icons.cloud_download_rounded),
+                label: 'Download',
+              ),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: activeCount > 0,
+                  label: Text('$activeCount'),
+                  child: const Icon(Icons.swap_vert_circle_outlined),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: activeCount > 0,
+                  label: Text('$activeCount'),
+                  child: const Icon(Icons.swap_vert_circle_rounded),
+                ),
+                label: 'Transfers',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings_rounded),
+                label: 'Settings',
+              ),
+            ],
+          );
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.cloud_upload_outlined),
-            selectedIcon: Icon(Icons.cloud_upload),
-            label: 'Upload',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.cloud_download_outlined),
-            selectedIcon: Icon(Icons.cloud_download),
-            label: 'Downloads',
-          ),
-        ],
       ),
     );
   }

@@ -9,6 +9,11 @@ abstract class AuthRemoteDataSource {
     required String username,
     required String password,
   });
+
+  Future<AuthTokenModel> register({
+    required String username,
+    required String password,
+  });
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -48,6 +53,35 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         rethrow;
       }
       throw ServerException(message: e.toString());
+    }
+  }
+
+  @override
+  Future<AuthTokenModel> register({
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final response = await dioClient.dio.post(
+        '/register',
+        data: {
+          'username': username,
+          'password': password,
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return AuthTokenModel.fromJson(response.data, username: username);
+      } else {
+        // If /register is not a separate endpoint, attempt logging in directly
+        return await login(username: username, password: password);
+      }
+    } catch (_) {
+      // Fallback: Attempt standard login with these credentials
+      return await login(username: username, password: password);
     }
   }
 }

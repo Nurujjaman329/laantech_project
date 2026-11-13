@@ -6,6 +6,11 @@ abstract class AuthRepository {
     required String password,
   });
 
+  Future<AuthToken> register({
+    required String username,
+    required String password,
+  });
+
   Future<void> logout();
 
   Future<AuthToken?> getCurrentUser();

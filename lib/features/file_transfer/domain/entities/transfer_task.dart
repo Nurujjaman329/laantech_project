@@ -69,6 +69,48 @@ class TransferTask extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'fileName': fileName,
+      'localPath': localPath,
+      'remoteUrl': remoteUrl,
+      'type': type.name,
+      'status': status.name,
+      'bytesTransferred': bytesTransferred,
+      'totalBytes': totalBytes,
+      'progress': progress,
+      'errorMessage': errorMessage,
+      'createdAt': createdAt.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
+    };
+  }
+
+  factory TransferTask.fromJson(Map<String, dynamic> json) {
+    return TransferTask(
+      id: json['id'] as String,
+      fileName: json['fileName'] as String,
+      localPath: json['localPath'] as String,
+      remoteUrl: json['remoteUrl'] as String?,
+      type: TransferType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => TransferType.upload,
+      ),
+      status: TransferStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => TransferStatus.queued,
+      ),
+      bytesTransferred: json['bytesTransferred'] as int? ?? 0,
+      totalBytes: json['totalBytes'] as int? ?? 0,
+      progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+      errorMessage: json['errorMessage'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      completedAt: json['completedAt'] != null
+          ? DateTime.tryParse(json['completedAt'] as String)
+          : null,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,

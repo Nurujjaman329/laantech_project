@@ -7,16 +7,19 @@ import 'package:laantech_task/features/auth/domain/entities/auth_token.dart';
 import 'package:laantech_task/features/auth/domain/usecases/get_auth_status_usecase.dart';
 import 'package:laantech_task/features/auth/domain/usecases/login_usecase.dart';
 import 'package:laantech_task/features/auth/domain/usecases/logout_usecase.dart';
+import 'package:laantech_task/features/auth/domain/usecases/register_usecase.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
 
 class MockLoginUseCase extends Mock implements LoginUseCase {}
+class MockRegisterUseCase extends Mock implements RegisterUseCase {}
 class MockLogoutUseCase extends Mock implements LogoutUseCase {}
 class MockGetAuthStatusUseCase extends Mock implements GetAuthStatusUseCase {}
 
 void main() {
   late MockLoginUseCase mockLoginUseCase;
+  late MockRegisterUseCase mockRegisterUseCase;
   late MockLogoutUseCase mockLogoutUseCase;
   late MockGetAuthStatusUseCase mockGetAuthStatusUseCase;
   late AuthBloc authBloc;
@@ -25,10 +28,12 @@ void main() {
 
   setUp(() {
     mockLoginUseCase = MockLoginUseCase();
+    mockRegisterUseCase = MockRegisterUseCase();
     mockLogoutUseCase = MockLogoutUseCase();
     mockGetAuthStatusUseCase = MockGetAuthStatusUseCase();
     authBloc = AuthBloc(
       loginUseCase: mockLoginUseCase,
+      registerUseCase: mockRegisterUseCase,
       logoutUseCase: mockLogoutUseCase,
       getAuthStatusUseCase: mockGetAuthStatusUseCase,
     );
@@ -106,6 +111,44 @@ void main() {
       expect: () => [
         const AuthLoading(),
         const AuthFailureState('Invalid credentials'),
+      ],
+    );
+  });
+
+  group('AuthRegisterRequested', () {
+    const registerParams = LoginParams(username: 'new_operator', password: 'newpassword');
+    const newUser = AuthToken(token: 'new_token_456', username: 'new_operator');
+
+    blocTest<AuthBloc, AuthState>(
+      'emits [AuthLoading, AuthAuthenticated] on successful registration',
+      build: () {
+        when(() => mockRegisterUseCase(registerParams))
+            .thenAnswer((_) async => newUser);
+        return authBloc;
+      },
+      act: (bloc) => bloc.add(const AuthRegisterRequested(
+        username: 'new_operator',
+        password: 'newpassword',
+      )),
+      expect: () => [
+        const AuthLoading(),
+        const AuthAuthenticated(newUser),
+      ],
+    );
+  });
+
+  group('AuthDemoLoginRequested', () {
+    blocTest<AuthBloc, AuthState>(
+      'emits [AuthLoading, AuthAuthenticated] with demo user',
+      build: () => authBloc,
+      act: (bloc) => bloc.add(const AuthDemoLoginRequested()),
+      expect: () => [
+        const AuthLoading(),
+        const AuthAuthenticated(AuthToken(
+          token: 'mock_demo_bearer_token_xyz',
+          tokenType: 'Bearer',
+          username: 'demo_operator',
+        )),
       ],
     );
   });

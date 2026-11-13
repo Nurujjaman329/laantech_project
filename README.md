@@ -28,10 +28,22 @@ lib/
 │       ├── data/              # FileRemoteDataSource, FileTransferRepositoryImpl, FileItemModel
 │       ├── domain/            # TransferTask, FileItem entities, UseCases, TransferRepository
 │       └── presentation/      # TransferBloc, FileListBloc, UI Screens & Widgets
-│           ├── screens/       # HomeShellScreen, UploadScreen, DownloadScreen
+│           ├── screens/       # DashboardScreen, UploadScreen, DownloadScreen, TransferManagerScreen, SettingsScreen, HomeShellScreen
 │           └── widgets/       # PersistentTransferBanner, PersistentTransferSheet, TransferItemTile
 └── main.dart                  # Dependency injection & root MultiBlocProvider
 ```
+
+### Complete Screen Architecture
+1. **Login Screen**: Operator authentication with Sign In / Register toggle and a 1-Click Demo Operator button for immediate review.
+2. **Dashboard Screen**: Comprehensive POS SaaS metric center showing terminal sync status, 2x2 statistics grid (Active Syncs, Completed, Failed/Pending, Total Data Volume), quick operational shortcuts, and live active transfer list.
+3. **Upload Screen**: File picker supporting arbitrary local files + 1-Click 50MB sample catalog CSV generator.
+4. **Download Screen**: Remote catalog listing with file search, HTTP Range resumable download triggers, and file open launcher.
+5. **Transfer Manager Screen**: Dedicated full-screen hub featuring quick search, status segmentation chips (`All`, `Active`, `Completed`, `Failed`), batch "Retry All", and granular controls.
+6. **Settings Screen**: POS backend endpoints overview, timeout policies, throttling rules, and operator logout controls.
+7. **Global Transfer Accessibility**: Available anywhere in the app via the persistent floating banner and the AppBar badge sheet.
+
+### Dynamic Theme & Color System
+All UI components use Material 3 semantic theme tokens (`colorScheme.primary`, `colorScheme.surfaceContainerHighest`, `colorScheme.tertiary`, `colorScheme.error`, `colorScheme.outlineVariant`) rather than hardcoded raw hex colors, ensuring proper contrast and light/dark theme adaptation.
 
 ### Why This Architecture?
 1. **Single Source of Truth**:

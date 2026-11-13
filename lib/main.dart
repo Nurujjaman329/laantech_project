@@ -12,6 +12,7 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/get_auth_status_usecase.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/auth/domain/usecases/logout_usecase.dart';
+import 'features/auth/domain/usecases/register_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
@@ -24,6 +25,9 @@ import 'features/file_transfer/presentation/bloc/file_list_bloc.dart';
 import 'features/file_transfer/presentation/bloc/transfer_bloc.dart';
 import 'features/file_transfer/presentation/bloc/transfer_event.dart';
 import 'features/file_transfer/presentation/screens/home_shell_screen.dart';
+import 'features/file_transfer/presentation/widgets/persistent_transfer_sheet.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +41,13 @@ void main() async {
   );
 
   final notificationService = NotificationServiceImpl();
-  await notificationService.initialize();
+  await notificationService.initialize(
+    onSelectNotification: (payload) {
+      if (rootNavigatorKey.currentContext != null) {
+        PersistentTransferSheet.show(rootNavigatorKey.currentContext!);
+      }
+    },
+  );
 
   // Core Networking
   final dioClient = DioClient(tokenStorage: tokenStorage);
@@ -49,6 +59,7 @@ void main() async {
     tokenStorage: tokenStorage,
   );
   final loginUseCase = LoginUseCase(authRepository);
+  final registerUseCase = RegisterUseCase(authRepository);
   final logoutUseCase = LogoutUseCase(authRepository);
   final getAuthStatusUseCase = GetAuthStatusUseCase(authRepository);
 
@@ -57,6 +68,7 @@ void main() async {
   final fileTransferRepository = FileTransferRepositoryImpl(
     remoteDataSource: fileRemoteDataSource,
     notificationService: notificationService,
+    sharedPreferences: sharedPrefs,
   );
 
   final getFilesUseCase = GetFilesUseCase(fileTransferRepository);
@@ -74,6 +86,7 @@ void main() async {
         BlocProvider<AuthBloc>(
           create: (_) => AuthBloc(
             loginUseCase: loginUseCase,
+            registerUseCase: registerUseCase,
             logoutUseCase: logoutUseCase,
             getAuthStatusUseCase: getAuthStatusUseCase,
           )..add(const AuthCheckRequested()),
@@ -107,6 +120,7 @@ class PosTransferApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'POS File Transfer',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

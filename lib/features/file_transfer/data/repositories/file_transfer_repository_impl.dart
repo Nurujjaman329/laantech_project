@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/notifications/notification_service.dart';
 import '../../domain/entities/file_item.dart';
@@ -12,16 +14,53 @@ import '../datasources/file_remote_data_source.dart';
 class FileTransferRepositoryImpl implements FileTransferRepository {
   final FileRemoteDataSource remoteDataSource;
   final NotificationService notificationService;
+  final SharedPreferences? sharedPreferences;
 
   final Map<String, TransferTask> _tasks = {};
   final Map<String, CancelToken> _cancelTokens = {};
   final StreamController<TransferTask> _streamController =
       StreamController<TransferTask>.broadcast();
 
+  static const String _storageKey = 'cached_transfer_tasks';
+
   FileTransferRepositoryImpl({
     required this.remoteDataSource,
     required this.notificationService,
-  });
+    this.sharedPreferences,
+  }) {
+    _loadSavedTasks();
+  }
+
+  void _loadSavedTasks() {
+    if (sharedPreferences == null) return;
+    try {
+      final jsonStr = sharedPreferences!.getString(_storageKey);
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final List<dynamic> list = jsonDecode(jsonStr);
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            var task = TransferTask.fromJson(item);
+            // If the app was forcefully killed while running, mark as paused/interrupted
+            if (task.isRunning || task.status == TransferStatus.queued) {
+              task = task.copyWith(
+                status: TransferStatus.paused,
+                errorMessage: 'Transfer paused (app was closed)',
+              );
+            }
+            _tasks[task.id] = task;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _persistTasks() {
+    if (sharedPreferences == null) return;
+    try {
+      final list = _tasks.values.map((t) => t.toJson()).toList();
+      sharedPreferences!.setString(_storageKey, jsonEncode(list));
+    } catch (_) {}
+  }
 
   @override
   Stream<TransferTask> get transferStream => _streamController.stream;
@@ -43,6 +82,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
 
   void _emitTask(TransferTask task) {
     _tasks[task.id] = task;
+    _persistTasks();
     if (!_streamController.isClosed) {
       _streamController.add(task);
     }

@@ -16,7 +16,10 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  PlatformFile? _selectedFile;
+  String? _selectedFilePath;
+  String? _selectedFileName;
+  int? _selectedFileSize;
+  bool _isGeneratingSample = false;
 
   Future<void> _pickFile() async {
     try {
@@ -24,9 +27,11 @@ class _UploadScreenState extends State<UploadScreen> {
         type: FileType.any,
       );
 
-      if (file != null) {
+      if (file != null && file.path != null) {
         setState(() {
-          _selectedFile = file;
+          _selectedFilePath = file.path;
+          _selectedFileName = file.name;
+          _selectedFileSize = file.lengthSync();
         });
       }
     } catch (e) {
@@ -38,23 +43,67 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
+  Future<void> _generateSample50MbFile() async {
+    setState(() => _isGeneratingSample = true);
+    try {
+      final tempDir = Directory.systemTemp;
+      final sampleFile = File('${tempDir.path}/catalog_sample_50mb.csv');
+      final sink = sampleFile.openWrite();
+      sink.writeln('id,sku,name,price,inventory_count,description,category');
+      
+      const row = '1001,SKU-PROD-001,Wireless Barcode Scanner,129.99,450,High speed 2D barcode scanner with Bluetooth for retail POS stations,Hardware\n';
+      const targetBytes = 52428800; // 50MB
+      final iterations = targetBytes ~/ row.length;
+      for (int i = 0; i < iterations; i++) {
+        sink.write(row);
+      }
+      await sink.flush();
+      await sink.close();
+
+      final actualSize = await sampleFile.length();
+      setState(() {
+        _selectedFilePath = sampleFile.path;
+        _selectedFileName = 'catalog_sample_50mb.csv';
+        _selectedFileSize = actualSize;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generated 50MB Catalog CSV for testing!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating sample file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingSample = false);
+      }
+    }
+  }
+
   void _startUpload() {
-    if (_selectedFile == null || _selectedFile!.path == null) {
+    if (_selectedFilePath == null || _selectedFileName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file first')),
+        const SnackBar(content: Text('Please select or generate a file first')),
       );
       return;
     }
 
     context.read<TransferBloc>().add(
           TransferUploadRequested(
-            filePath: _selectedFile!.path!,
-            fileName: _selectedFile!.name,
+            filePath: _selectedFilePath!,
+            fileName: _selectedFileName!,
           ),
         );
 
     setState(() {
-      _selectedFile = null;
+      _selectedFilePath = null;
+      _selectedFileName = null;
+      _selectedFileSize = null;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -134,13 +183,13 @@ class _UploadScreenState extends State<UploadScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Upload File to POS',
+                                    'Upload File to POS Server',
                                     style: theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   Text(
-                                    'Select CSV catalog, >50MB video/images, or reports',
+                                    'Select CSV catalog, >50MB video/images, or generate a test file',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
@@ -153,7 +202,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         const SizedBox(height: 20),
 
                         // Selected File Preview
-                        if (_selectedFile != null) ...[
+                        if (_selectedFileName != null) ...[
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -169,12 +218,12 @@ class _UploadScreenState extends State<UploadScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _selectedFile!.name,
+                                        _selectedFileName!,
                                         style: const TextStyle(fontWeight: FontWeight.w600),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       Text(
-                                        _formatSize(_selectedFile!.lengthSync() ?? 0),
+                                        _formatSize(_selectedFileSize ?? 0),
                                         style: theme.textTheme.bodySmall,
                                       ),
                                     ],
@@ -182,7 +231,11 @@ class _UploadScreenState extends State<UploadScreen> {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.close, size: 20),
-                                  onPressed: () => setState(() => _selectedFile = null),
+                                  onPressed: () => setState(() {
+                                    _selectedFilePath = null;
+                                    _selectedFileName = null;
+                                    _selectedFileSize = null;
+                                  }),
                                 ),
                               ],
                             ),
@@ -190,14 +243,14 @@ class _UploadScreenState extends State<UploadScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // Action Buttons
+                        // Action Buttons: Pick File or Generate 50MB Sample
                         Row(
                           children: [
                             Expanded(
                               child: OutlinedButton.icon(
                                 onPressed: _pickFile,
                                 icon: const Icon(Icons.attach_file_rounded),
-                                label: Text(_selectedFile == null ? 'Choose File' : 'Change File'),
+                                label: Text(_selectedFileName == null ? 'Pick File' : 'Change File'),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
@@ -206,24 +259,43 @@ class _UploadScreenState extends State<UploadScreen> {
                                 ),
                               ),
                             ),
-                            if (_selectedFile != null) ...[
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _startUpload,
-                                  icon: const Icon(Icons.upload_rounded),
-                                  label: const Text('Start Upload'),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _isGeneratingSample ? null : _generateSample50MbFile,
+                                icon: _isGeneratingSample
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.auto_awesome, color: Colors.purple),
+                                label: const Text('>50MB Sample'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
+
+                        if (_selectedFileName != null) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _startUpload,
+                            icon: const Icon(Icons.upload_rounded),
+                            label: const Text('Start Upload'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -256,7 +328,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   padding: const EdgeInsets.all(32),
                   child: Center(
                     child: Text(
-                      'No uploads yet. Pick a file to begin.',
+                      'No uploads yet. Pick a file or generate a sample to begin.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

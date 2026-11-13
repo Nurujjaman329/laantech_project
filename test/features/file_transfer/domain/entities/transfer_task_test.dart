@@ -36,5 +36,17 @@ void main() {
       expect(updated.isCompleted, isTrue);
       expect(task.status, TransferStatus.running); // original untouched
     });
+
+    test('toJson and fromJson serialize and deserialize correctly', () {
+      final json = task.toJson();
+      final deserialized = TransferTask.fromJson(json);
+
+      expect(deserialized.id, task.id);
+      expect(deserialized.fileName, task.fileName);
+      expect(deserialized.status, task.status);
+      expect(deserialized.bytesTransferred, task.bytesTransferred);
+      expect(deserialized.totalBytes, task.totalBytes);
+      expect(deserialized.progress, task.progress);
+    });
   });
 }

@@ -46,6 +46,7 @@ void main() {
     );
 
     expect(find.text('POS Transfer Portal'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Sign In'), findsAtLeastNWidgets(1));
+    expect(find.text('Register'), findsOneWidget);
   });
 }
