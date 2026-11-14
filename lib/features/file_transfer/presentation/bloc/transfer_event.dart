@@ -101,3 +101,11 @@ class TransferDismissNetworkPromptRequested extends TransferEvent {
 class TransferErrorCleared extends TransferEvent {
   const TransferErrorCleared();
 }
+
+class TransferSessionExpired extends TransferEvent {
+  const TransferSessionExpired();
+}
+
+class TransferSessionExpiredHandled extends TransferEvent {
+  const TransferSessionExpiredHandled();
+}

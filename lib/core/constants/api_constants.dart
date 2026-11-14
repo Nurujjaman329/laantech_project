@@ -14,7 +14,15 @@ class ApiConstants {
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 60);
-  static const Duration sendTimeout = Duration(minutes: 5); // for large files
+  /// Default Dio send timeout for normal API calls (not large multipart uploads).
+  static const Duration sendTimeout = Duration(minutes: 5);
+  /// Upload-only override: global [sendTimeout] covers the whole multipart body,
+  /// so a 50MB+ catalog on a slow link can fail mid-send. Uploads use this longer
+  /// (effectively "no short send deadline") while still keeping [connectTimeout].
+  static const Duration uploadSendTimeout = Duration(hours: 6);
+
+  /// Configurable upload size cap (bytes). Not a file-type filter.
+  static const int maxUploadBytes = 500 * 1024 * 1024; // 500MB
 
   // Storage Keys
   static const String tokenKey = 'auth_token';

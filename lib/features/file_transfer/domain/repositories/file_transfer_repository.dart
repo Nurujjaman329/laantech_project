@@ -5,6 +5,9 @@ abstract class FileTransferRepository {
   /// Stream of transfer updates for UI and notification listeners
   Stream<TransferTask> get transferStream;
 
+  /// Emits when a transfer hits HTTP 401 / auth failure (UI should log out).
+  Stream<void> get authExpiredStream;
+
   /// Fetch list of files currently on server
   Future<List<FileItem>> getFiles();
 
@@ -34,6 +37,9 @@ abstract class FileTransferRepository {
 
   /// Retry a failed or cancelled transfer
   Future<void> retryTransfer(String taskId);
+
+  /// Remove completed and cancelled tasks from memory and SharedPreferences.
+  Future<void> clearFinishedTasks();
 
   /// Get current snapshot of all active/recent tasks
   List<TransferTask> getAllTasks();

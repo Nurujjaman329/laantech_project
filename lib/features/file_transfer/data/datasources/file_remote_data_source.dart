@@ -88,7 +88,12 @@ class FileRemoteDataSourceImpl implements FileRemoteDataSource {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        throw const TransferException(message: 'Selected file does not exist on device.');
+        throw const TransferException(
+          message: 'File not found, please pick it again.',
+        );
+      }
+      if (await file.length() <= 0) {
+        throw const TransferException(message: 'This file is empty.');
       }
 
       final formData = FormData.fromMap({
@@ -104,9 +109,11 @@ class FileRemoteDataSourceImpl implements FileRemoteDataSource {
         onSendProgress: onSendProgress,
         cancelToken: cancelToken,
         options: Options(
-          headers: {
-            HttpHeaders.contentTypeHeader: 'multipart/form-data',
-          },
+          // Keep connectTimeout from DioClient BaseOptions.
+          // Do not use the short global sendTimeout — it applies to the entire
+          // multipart body and aborts large/slow uploads. Dio sets the multipart
+          // Content-Type (with boundary) itself; do not set it manually.
+          sendTimeout: ApiConstants.uploadSendTimeout,
         ),
       );
 
@@ -121,7 +128,10 @@ class FileRemoteDataSourceImpl implements FileRemoteDataSource {
     } on DioException catch (e) {
       throw dioClient.handleDioException(e);
     } catch (e) {
-      if (e is ServerException || e is NetworkException || e is TransferException) {
+      if (e is ServerException ||
+          e is NetworkException ||
+          e is TransferException ||
+          e is AuthException) {
         rethrow;
       }
       throw ServerException(message: e.toString());
@@ -147,11 +157,17 @@ class FileRemoteDataSourceImpl implements FileRemoteDataSource {
         options: Options(
           responseType: ResponseType.stream,
           headers: headers,
+          // 416 = Range Not Satisfiable (e.g. .part already complete).
+          validateStatus: (status) =>
+              status != null &&
+              (status == 200 || status == 206 || status == 416),
         ),
       );
 
-      // Status 200 (OK for new file) or 206 (Partial Content for resumed file)
-      if (response.statusCode == 200 || response.statusCode == 206) {
+      // 200 (full), 206 (partial resume), 416 (range unsatisfiable — caller decides)
+      if (response.statusCode == 200 ||
+          response.statusCode == 206 ||
+          response.statusCode == 416) {
         return response;
       } else {
         throw ServerException(
@@ -162,7 +178,10 @@ class FileRemoteDataSourceImpl implements FileRemoteDataSource {
     } on DioException catch (e) {
       throw dioClient.handleDioException(e);
     } catch (e) {
-      if (e is ServerException || e is NetworkException || e is TransferException) {
+      if (e is ServerException ||
+          e is NetworkException ||
+          e is TransferException ||
+          e is AuthException) {
         rethrow;
       }
       throw ServerException(message: e.toString());

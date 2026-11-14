@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/api_constants.dart';
+import '../../../../core/storage/upload_file_validator.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/pos_terminal_banner.dart';
 import '../../domain/entities/transfer_task.dart';
@@ -102,7 +104,7 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  void _startUpload() {
+  Future<void> _startUpload() async {
     if (_selectedFilePath == null || _selectedFileName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -113,10 +115,32 @@ class _UploadScreenState extends State<UploadScreen> {
       return;
     }
 
+    final path = _selectedFilePath!;
+    final name = _selectedFileName!;
+    final file = File(path);
+    final exists = await file.exists();
+    final sizeBytes = exists ? await file.length() : (_selectedFileSize ?? 0);
+    final validationError = UploadFileValidator.validate(
+      exists: exists,
+      sizeBytes: sizeBytes,
+      maxBytes: ApiConstants.maxUploadBytes,
+    );
+    if (validationError != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(validationError),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     context.read<TransferBloc>().add(
           TransferUploadRequested(
-            filePath: _selectedFilePath!,
-            fileName: _selectedFileName!,
+            filePath: path,
+            fileName: name,
           ),
         );
 

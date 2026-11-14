@@ -20,6 +20,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
 
   StreamSubscription<TransferTask>? _transferSubscription;
   StreamSubscription<bool>? _connectivitySubscription;
+  StreamSubscription<void>? _authExpiredSubscription;
 
   static const String networkPauseReason = 'Paused — network offline';
 
@@ -46,9 +47,17 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     on<TransferResumeNetworkPausedRequested>(_onResumeNetworkPaused);
     on<TransferDismissNetworkPromptRequested>(_onDismissNetworkPrompt);
     on<TransferErrorCleared>(_onErrorCleared);
+    on<TransferSessionExpired>(_onSessionExpired);
+    on<TransferSessionExpiredHandled>(_onSessionExpiredHandled);
 
     _transferSubscription = repository.transferStream.listen((task) {
       add(TransferTaskUpdated(task));
+    });
+
+    _authExpiredSubscription = repository.authExpiredStream.listen((_) {
+      if (!isClosed) {
+        add(const TransferSessionExpired());
+      }
     });
 
     final connectivity = connectivityService;
@@ -207,13 +216,15 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     }
   }
 
-  void _onClearCompletedRequested(
+  Future<void> _onClearCompletedRequested(
     TransferClearCompletedRequested event,
     Emitter<TransferState> emit,
-  ) {
-    final filtered = Map<String, TransferTask>.from(state.tasks)
-      ..removeWhere((_, task) => task.isCompleted || task.isCancelled);
-    emit(state.copyWith(tasks: filtered));
+  ) async {
+    await repository.clearFinishedTasks();
+    final taskMap = <String, TransferTask>{
+      for (final t in repository.getAllTasks()) t.id: t,
+    };
+    emit(state.copyWith(tasks: taskMap));
   }
 
   Future<void> _onConnectivityChanged(
@@ -286,10 +297,30 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     }
   }
 
+  void _onSessionExpired(
+    TransferSessionExpired event,
+    Emitter<TransferState> emit,
+  ) {
+    emit(state.copyWith(
+      sessionExpired: true,
+      errorMessage: ErrorMessageMapper.sessionExpiredMessage,
+    ));
+  }
+
+  void _onSessionExpiredHandled(
+    TransferSessionExpiredHandled event,
+    Emitter<TransferState> emit,
+  ) {
+    if (state.sessionExpired) {
+      emit(state.copyWith(clearSessionExpired: true));
+    }
+  }
+
   @override
   Future<void> close() {
     _transferSubscription?.cancel();
     _connectivitySubscription?.cancel();
+    _authExpiredSubscription?.cancel();
     return super.close();
   }
 }

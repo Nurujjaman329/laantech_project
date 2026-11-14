@@ -56,7 +56,7 @@ lib/
 ### Why this shape?
 1. **Single source of truth** — `FileTransferRepositoryImpl` owns in-flight Dio transfers and task state. Switching tabs does not cancel work.
 2. **BLoC as UI adapter** — `TransferBloc` listens to `transferStream` and fans progress into screens, banner, and Transfer Manager.
-3. **Notifications as OS surface** — Progress (throttled ~600ms), completion, and error notifications. Taps are routed by payload (`upload_<id>` / `download_<id>`) to the matching tab + sheet (including cold start).
+3. **Notifications as OS surface** — While FGS is active, one aggregate ongoing notification covers progress (per-task progress toasts are skipped to avoid duplicates). Completion and error notifications still fire. Taps are routed by payload (`upload_<id>` / `download_<id>`) to the matching tab + sheet (including cold start).
 
 ---
 
@@ -67,9 +67,9 @@ lib/
 | Scenario | Behavior |
 | :--- | :--- |
 | Switch tabs / leave Upload or Download screen | Transfer **continues** (repository-owned Dio request, not tied to widget lifecycle). |
-| App minimized while process stays alive | Socket may keep running for a limited OS window; ongoing notification shows progress. |
+| App minimized while process stays alive | Typed `dataSync` FGS + aggregate progress notification keep the process eligible to run. |
 | Process killed / swipe away from Recents | In-flight sockets die. Tasks persisted in SharedPreferences are restored as **paused** (`Transfer paused (app was closed)`). Operator taps **Resume**. |
-| Download resume after kill / pause | **Byte resume** via `.part` file + HTTP `Range` / 206. |
+| Download resume after kill / pause | **Byte resume** via `.part` file + HTTP `Range` / 206 (HTTP **416** with a full `.part` finalizes as completed). |
 | Upload resume after pause / kill | **Restarts from 0%** (mock multipart API has no chunk protocol). |
 
 Transfers run as **async Dio work on the main Dart isolate**, owned by the repository singleton (not a separate isolate pool). While any transfer is **running/queued**, Android starts a typed **`dataSync` Foreground Service** via `flutter_foreground_task` with an ongoing progress notification so the process can keep working when the app is **minimized**. Force-stop / swipe-kill still ends sockets; tasks restore as **paused** for manual Resume.
@@ -101,9 +101,11 @@ Transfers run as **async Dio work on the main Dart isolate**, owned by the repos
 - **Resume / Retry** — restarts the full multipart `POST /upload` from 0% (server constraint, not a client bug).
 
 ### Errors & poor network
-Friendly mapping for timeouts, offline (`SocketException`), 401, and server errors, with **Retry** on failed tasks. Debug builds also print every API call via `[API]` logs in `DioClient`.
+Friendly mapping for timeouts, offline (`SocketException`), 401, invalid/empty uploads, and server errors, with **Retry** on failed tasks. A **401 / auth expiry** during transfer signals logout back to the login screen. Debug builds also print every API call via `[API]` logs in `DioClient`.
 
 **Connectivity auto-pause:** when the device goes offline, running transfers are paused with reason `Paused — network offline`. When connectivity returns, a snackbar offers **Resume** for those network-paused tasks (manual Pause is left alone). An offline banner also appears under the AppBar.
+
+**Clear Finished:** removes completed/cancelled tasks from memory **and** SharedPreferences so they stay gone after restart.
 
 ---
 
@@ -115,11 +117,28 @@ Friendly mapping for timeouts, offline (`SocketException`), 401, and server erro
 
 ---
 
+## How to test background behavior
+
+Manual checks on a **real Android device** (emulator is weaker for FGS / OEM battery rules):
+
+1. **Minimize + screen off (5+ minutes)** — start a large upload or download, press Home, turn the screen off for 5+ minutes. Expect the FGS notification to stay up and the transfer to keep progressing (or finish).
+2. **Swipe away then reopen** — start a transfer, swipe the app from Recents, reopen. Tasks should restore as **paused** with message about app closed; tap **Resume**. Downloads should continue from the `.part` size, not 0%.
+3. **Airplane mode** — during a transfer, enable airplane mode (auto-pause + offline banner), then disable it and accept the **Resume** snackbar for network-paused tasks.
+4. **Download resume size** — pause mid-download, note `.part` growth / progress %, resume and confirm progress continues (not reset).
+5. **Public Downloads** — after a successful download, open the system **Files** app → **Downloads** → **POS_Transfers** and confirm the file is visible.
+6. **Notification tap** — while a transfer is running, tap the FGS / completion notification; expect the correct Upload/Download tab + transfer sheet. Force-stop the app, then tap a completion notification (cold start) and confirm routing still works.
+7. **Android 13+ notification permission** — on first launch (API 33+), allow notifications when prompted; without it, tray progress/completion may not appear.
+
+### Verify on device
+These behaviors depend on OEM battery policy and cannot be fully proven in unit tests alone: long minimize with screen off, FGS survival under aggressive OEMs, and MediaStore visibility in the Files app.
+
+---
+
 ## Running & Building
 
 ### Prerequisites
 - Flutter SDK 3.27+ (Dart 3.13+)
-- Android SDK: compileSdk 36, minSdk 21
+- Android SDK: compileSdk 36, **minSdk 21** (set explicitly in `android/app/build.gradle.kts`)
 - JDK 17
 
 ### Commands
@@ -135,7 +154,7 @@ Debug APK output:
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Current test suite: **91+ passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
+Current test suite: **109 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
 
 ---
 
@@ -144,4 +163,3 @@ Current test suite: **91+ passing tests** (data sources, repositories, use cases
 1. **Upload byte-level resume** — needs tus.io / S3 multipart (or similar) on the backend; client currently restarts multipart from 0%.
 2. **Post-kill headless restart** — FGS covers **minimize** while the process lives. After process death, add Android `WorkManager` (+ durable queue such as Drift/Isar) and iOS `BGProcessingTask` so jobs can restart without only manual Resume.
 3. **Smarter network policies** — today we auto-pause on any offline and prompt Resume when back; could also pause on metered cellular and prefer Wi‑Fi only.
-4. **Clear Finished persistence** — clearing finished tasks in the sheet currently updates UI state; tightening SharedPreferences sync would keep cleared items gone after restart.

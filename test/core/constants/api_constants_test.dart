@@ -16,6 +16,13 @@ void main() {
       expect(ApiConstants.connectTimeout.inSeconds, 30);
       expect(ApiConstants.receiveTimeout.inSeconds, 60);
       expect(ApiConstants.sendTimeout.inMinutes, 5);
+      // Upload send deadline must be much longer than the default 5-minute cap.
+      expect(
+        ApiConstants.uploadSendTimeout,
+        greaterThan(ApiConstants.sendTimeout),
+      );
+      expect(ApiConstants.uploadSendTimeout.inHours, greaterThanOrEqualTo(1));
+      expect(ApiConstants.maxUploadBytes, greaterThan(50 * 1024 * 1024));
     });
   });
 }

@@ -7,6 +7,8 @@ class TransferState extends Equatable {
   final bool isOffline;
   final List<String> networkPausedTaskIds;
   final bool showNetworkRestoredPrompt;
+  /// True once when a transfer fails with HTTP 401 — UI should log out.
+  final bool sessionExpired;
 
   const TransferState({
     this.tasks = const {},
@@ -14,6 +16,7 @@ class TransferState extends Equatable {
     this.isOffline = false,
     this.networkPausedTaskIds = const [],
     this.showNetworkRestoredPrompt = false,
+    this.sessionExpired = false,
   });
 
   List<TransferTask> get allTasks => tasks.values.toList()
@@ -43,6 +46,8 @@ class TransferState extends Equatable {
     bool? isOffline,
     List<String>? networkPausedTaskIds,
     bool? showNetworkRestoredPrompt,
+    bool? sessionExpired,
+    bool clearSessionExpired = false,
   }) {
     return TransferState(
       tasks: tasks ?? this.tasks,
@@ -51,6 +56,9 @@ class TransferState extends Equatable {
       networkPausedTaskIds: networkPausedTaskIds ?? this.networkPausedTaskIds,
       showNetworkRestoredPrompt:
           showNetworkRestoredPrompt ?? this.showNetworkRestoredPrompt,
+      sessionExpired: clearSessionExpired
+          ? false
+          : (sessionExpired ?? this.sessionExpired),
     );
   }
 
@@ -61,5 +69,6 @@ class TransferState extends Equatable {
         isOffline,
         networkPausedTaskIds,
         showNetworkRestoredPrompt,
+        sessionExpired,
       ];
 }

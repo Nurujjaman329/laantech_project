@@ -5,6 +5,9 @@ import 'failures.dart';
 class ErrorMessageMapper {
   ErrorMessageMapper._();
 
+  static const String sessionExpiredMessage =
+      'Session expired. Please sign in again.';
+
   static String from(Object error, {String? fallback}) {
     if (error is Failure) {
       return _refine(error.message, statusCode: error.statusCode);
@@ -39,11 +42,12 @@ class ErrorMessageMapper {
     if (statusCode == 401 ||
         lower.contains('unauthorized') ||
         lower.contains('invalid credentials') ||
-        lower.contains('authentication')) {
+        lower.contains('authentication') ||
+        lower.contains('session expired')) {
       if (lower.contains('credential') || lower.contains('password')) {
         return 'Invalid username or password.';
       }
-      return 'Session expired or unauthorized. Please sign in again.';
+      return sessionExpiredMessage;
     }
 
     if (statusCode == 404 || lower.contains('not found')) {

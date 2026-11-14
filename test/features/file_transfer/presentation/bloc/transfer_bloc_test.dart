@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:laantech_task/core/errors/error_message_mapper.dart';
 import 'package:laantech_task/features/file_transfer/domain/entities/transfer_task.dart';
 import 'package:laantech_task/features/file_transfer/domain/repositories/file_transfer_repository.dart';
 import 'package:laantech_task/features/file_transfer/domain/usecases/transfer_usecases.dart';
@@ -26,6 +27,7 @@ void main() {
   late MockCancelTransferUseCase mockCancelTransferUseCase;
   late MockRetryTransferUseCase mockRetryTransferUseCase;
   late StreamController<TransferTask> streamController;
+  late StreamController<void> authExpiredController;
   late TransferBloc transferBloc;
 
   setUpAll(() {
@@ -43,8 +45,11 @@ void main() {
     mockCancelTransferUseCase = MockCancelTransferUseCase();
     mockRetryTransferUseCase = MockRetryTransferUseCase();
     streamController = StreamController<TransferTask>.broadcast();
+    authExpiredController = StreamController<void>.broadcast();
 
     when(() => mockRepository.transferStream).thenAnswer((_) => streamController.stream);
+    when(() => mockRepository.authExpiredStream)
+        .thenAnswer((_) => authExpiredController.stream);
     when(() => mockRepository.getAllTasks()).thenReturn([]);
 
     transferBloc = TransferBloc(
@@ -61,6 +66,7 @@ void main() {
   tearDown(() {
     transferBloc.close();
     streamController.close();
+    authExpiredController.close();
   });
 
   final sampleTask = TransferTask(
@@ -77,6 +83,20 @@ void main() {
 
   test('initial state has empty task map', () {
     expect(transferBloc.state.tasks, isEmpty);
+  });
+
+  group('TransferBloc session expiry', () {
+    blocTest<TransferBloc, TransferState>(
+      'authExpiredStream sets sessionExpired and session message',
+      build: () => transferBloc,
+      act: (bloc) => authExpiredController.add(null),
+      expect: () => [
+        const TransferState(
+          sessionExpired: true,
+          errorMessage: ErrorMessageMapper.sessionExpiredMessage,
+        ),
+      ],
+    );
   });
 
   group('TransferBloc task updates via stream', () {
@@ -145,6 +165,33 @@ void main() {
       act: (bloc) => bloc.add(const TransferCancelRequested('task_1')),
       verify: (_) {
         verify(() => mockCancelTransferUseCase(const TaskActionParams('task_1'))).called(1);
+      },
+    );
+
+    blocTest<TransferBloc, TransferState>(
+      'TransferClearCompletedRequested clears via repository and keeps active',
+      build: () {
+        when(() => mockRepository.clearFinishedTasks()).thenAnswer((_) async {});
+        when(() => mockRepository.getAllTasks()).thenReturn([sampleTask]);
+        return transferBloc;
+      },
+      seed: () => TransferState(
+        tasks: {
+          'task_1': sampleTask,
+          'done_1': sampleTask.copyWith(
+            id: 'done_1',
+            status: TransferStatus.completed,
+            progress: 1,
+          ),
+        },
+      ),
+      act: (bloc) => bloc.add(const TransferClearCompletedRequested()),
+      expect: () => [
+        TransferState(tasks: {'task_1': sampleTask}),
+      ],
+      verify: (_) {
+        verify(() => mockRepository.clearFinishedTasks()).called(1);
+        verify(() => mockRepository.getAllTasks()).called(greaterThanOrEqualTo(1));
       },
     );
   });

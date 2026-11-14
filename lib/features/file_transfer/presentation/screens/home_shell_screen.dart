@@ -91,10 +91,31 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           previous.isOffline != current.isOffline ||
           previous.showNetworkRestoredPrompt !=
               current.showNetworkRestoredPrompt ||
-          previous.errorMessage != current.errorMessage,
+          previous.errorMessage != current.errorMessage ||
+          previous.sessionExpired != current.sessionExpired,
       listener: (context, state) {
         final messenger = ScaffoldMessenger.of(context);
         final colorScheme = Theme.of(context).colorScheme;
+
+        if (state.sessionExpired) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  state.errorMessage ??
+                      'Session expired. Please sign in again.',
+                ),
+                backgroundColor: colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          context
+              .read<TransferBloc>()
+              .add(const TransferSessionExpiredHandled());
+          context.read<AuthBloc>().add(const AuthLogoutRequested());
+          return;
+        }
 
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
           messenger

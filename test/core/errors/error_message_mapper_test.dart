@@ -16,7 +16,14 @@ void main() {
       final message = ErrorMessageMapper.from(
         const AuthFailure(message: 'Unauthorized', statusCode: 401),
       );
-      expect(message.toLowerCase(), contains('sign in'));
+      expect(message, ErrorMessageMapper.sessionExpiredMessage);
+    });
+
+    test('maps AuthException to session expired message', () {
+      final message = ErrorMessageMapper.from(
+        const AuthException(message: 'Unauthorized'),
+      );
+      expect(message, ErrorMessageMapper.sessionExpiredMessage);
     });
 
     test('maps offline / socket text to no-internet message', () {
