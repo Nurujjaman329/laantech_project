@@ -236,8 +236,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
                                                     FileListDeleteRequested(file.name),
                                                   );
                                             },
-                                            child: const Text('Delete',
-                                                style: TextStyle(color: Colors.red)),
+                                            child: Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                color: Theme.of(ctx).colorScheme.error,
+                                              ),
+                                            ),
                                           ),
                                         ],
                                       ),

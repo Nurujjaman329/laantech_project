@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/transfer_task.dart';
 
 class TransferItemTile extends StatelessWidget {
@@ -34,15 +35,15 @@ class TransferItemTile extends StatelessWidget {
       case TransferStatus.running:
         return theme.colorScheme.primary;
       case TransferStatus.paused:
-        return Colors.orange;
+        return AppColors.paused;
       case TransferStatus.completed:
-        return Colors.green;
+        return AppColors.success;
       case TransferStatus.failed:
         return theme.colorScheme.error;
       case TransferStatus.cancelled:
-        return Colors.grey;
+        return AppColors.cancelled;
       case TransferStatus.queued:
-        return Colors.blueGrey;
+        return AppColors.queued;
     }
   }
 
@@ -103,19 +104,28 @@ class TransferItemTile extends StatelessWidget {
                 // Action Buttons
                 if (task.isRunning)
                   IconButton(
-                    icon: const Icon(Icons.pause_circle_outline, color: Colors.orange),
+                    icon: const Icon(
+                      Icons.pause_circle_outline,
+                      color: AppColors.paused,
+                    ),
                     tooltip: 'Pause',
                     onPressed: onPause,
                   )
                 else if (task.isPaused)
                   IconButton(
-                    icon: const Icon(Icons.play_circle_outline, color: Colors.green),
+                    icon: const Icon(
+                      Icons.play_circle_outline,
+                      color: AppColors.success,
+                    ),
                     tooltip: 'Resume',
                     onPressed: onResume,
                   )
                 else if (task.isFailed)
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.blue),
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      color: theme.colorScheme.primary,
+                    ),
                     tooltip: 'Retry',
                     onPressed: onRetry,
                   ),
