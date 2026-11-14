@@ -262,65 +262,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Toggle between Login & Register text button
                       TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isRegisterMode = !_isRegisterMode;
-                          });
-                        },
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _isRegisterMode = !_isRegisterMode;
+                                });
+                              },
                         child: Text(
                           _isRegisterMode
                               ? 'Already have an account? Sign In'
                               : 'Don\'t have an account? Register here',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // 1-Click Demo / Test Mode for Evaluators
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.play_circle_filled_rounded, color: Colors.green),
-                        label: const Text('1-Click Demo Operator Access'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: isLoading
-                            ? null
-                            : () {
-                                context.read<AuthBloc>().add(const AuthDemoLoginRequested());
-                              },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Server Info Card
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: theme.colorScheme.outlineVariant,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 18,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Configured for http://108.136.142.112:90. Register above, or use 1-Click Demo — it performs a real API login (auto-registers the demo operator if needed).',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ],

@@ -1,8 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecase/usecase.dart';
-import '../../domain/entities/auth_token.dart';
 import '../../domain/usecases/get_auth_status_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
@@ -25,7 +23,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthRegisterRequested>(_onAuthRegisterRequested);
-    on<AuthDemoLoginRequested>(_onAuthDemoLoginRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
   }
 
@@ -78,34 +75,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           password: event.password,
         ),
       );
-      emit(AuthAuthenticated(token));
-    } on Failure catch (failure) {
-      emit(AuthFailureState(failure.message));
-    } catch (e) {
-      emit(AuthFailureState(e.toString()));
-    }
-  }
-
-  Future<void> _onAuthDemoLoginRequested(
-    AuthDemoLoginRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-    const params = LoginParams(
-      username: ApiConstants.demoUsername,
-      password: ApiConstants.demoPassword,
-    );
-
-    try {
-      // Prefer login so repeated Demo taps stay fast once the account exists.
-      AuthToken token;
-      try {
-        token = await loginUseCase(params);
-      } catch (_) {
-        // First-time (or expired) demo account: register, then use returned token.
-        // AuthRemoteDataSource already falls back to login if username is taken.
-        token = await registerUseCase(params);
-      }
       emit(AuthAuthenticated(token));
     } on Failure catch (failure) {
       emit(AuthFailureState(failure.message));

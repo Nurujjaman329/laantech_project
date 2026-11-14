@@ -37,10 +37,6 @@ class AuthRegisterRequested extends AuthEvent {
   List<Object?> get props => [username, password];
 }
 
-class AuthDemoLoginRequested extends AuthEvent {
-  const AuthDemoLoginRequested();
-}
-
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }

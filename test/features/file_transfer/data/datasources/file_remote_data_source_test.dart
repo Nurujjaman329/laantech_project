@@ -5,7 +5,6 @@ import 'package:laantech_task/core/constants/api_constants.dart';
 import 'package:laantech_task/core/errors/exceptions.dart';
 import 'package:laantech_task/core/network/dio_client.dart';
 import 'package:laantech_task/features/file_transfer/data/datasources/file_remote_data_source.dart';
-import 'package:laantech_task/features/file_transfer/data/models/file_item_model.dart';
 
 class MockDioClient extends Mock implements DioClient {}
 class MockDio extends Mock implements Dio {}

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/errors/exceptions.dart';
 import '../../../../core/notifications/notification_service.dart';
 import '../../domain/entities/file_item.dart';
 import '../../domain/entities/transfer_task.dart';

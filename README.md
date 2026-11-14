@@ -14,9 +14,7 @@ Built for real-world scenarios such as importing large product catalogs (>50MB C
 
 1. `flutter pub get`
 2. `flutter run`
-3. On the login screen either:
-   - **Register** a new username/password, then use the app, or
-   - Tap **1-Click Demo Operator Access** — this performs a **real** `/token` login (auto-registers `pos_demo_operator` on first use) and persists a real Bearer token
+3. On the login screen **Register** a username/password (or **Sign In** if you already registered), then use the app
 4. Upload via **Upload** tab (pick a file or generate the **>50MB Sample** CSV)
 5. Download via **Download** tab (list → download → open)
 6. Watch progress on-screen, in the floating banner / transfer sheet, and in system notifications  
@@ -47,7 +45,7 @@ lib/
 ```
 
 ### Screens
-1. **Login / Register** — Sign In, Register, and 1-Click Demo (real API auth).
+1. **Login / Register** — Sign In and Register against the mock API.
 2. **Dashboard** — Sync stats, shortcuts, and live active transfers.
 3. **Upload** — File picker + 1-click 50MB sample CSV + on-screen progress / pause / resume / retry.
 4. **Download** — Remote file list, resumable download, open completed files.
@@ -137,12 +135,7 @@ Debug APK output:
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Current test suite: **84 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
-
-### Demo credentials (1-Click Demo)
-- Username: `pos_demo_operator`
-- Password: `DemoPass123!`  
-Auto-registered on first Demo tap against the live mock API.
+Current test suite: **81 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
 
 ---
 

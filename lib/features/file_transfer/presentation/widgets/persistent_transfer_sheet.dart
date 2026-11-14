@@ -48,21 +48,28 @@ class PersistentTransferSheet extends StatelessWidget {
               children: [
                 const Icon(Icons.sync_alt_rounded),
                 const SizedBox(width: 8),
-                Text(
-                  'Transfers Dashboard',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Transfers',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: () {
                     context.read<TransferBloc>().add(
                           const TransferClearCompletedRequested(),
                         );
                   },
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   icon: const Icon(Icons.clear_all_rounded, size: 18),
-                  label: const Text('Clear Finished'),
+                  label: const Text('Clear'),
                 ),
               ],
             ),

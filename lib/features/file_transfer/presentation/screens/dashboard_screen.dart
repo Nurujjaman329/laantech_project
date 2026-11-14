@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';

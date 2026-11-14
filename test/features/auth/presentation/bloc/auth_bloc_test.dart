@@ -137,64 +137,6 @@ void main() {
     );
   });
 
-  group('AuthDemoLoginRequested', () {
-    const demoParams = LoginParams(
-      username: 'pos_demo_operator',
-      password: 'DemoPass123!',
-    );
-    const demoUser = AuthToken(
-      token: 'real_demo_token',
-      tokenType: 'Bearer',
-      username: 'pos_demo_operator',
-    );
-
-    blocTest<AuthBloc, AuthState>(
-      'emits [AuthLoading, AuthAuthenticated] via real demo login',
-      build: () {
-        when(() => mockLoginUseCase(demoParams))
-            .thenAnswer((_) async => demoUser);
-        return authBloc;
-      },
-      act: (bloc) => bloc.add(const AuthDemoLoginRequested()),
-      expect: () => [
-        const AuthLoading(),
-        const AuthAuthenticated(demoUser),
-      ],
-    );
-
-    blocTest<AuthBloc, AuthState>(
-      'falls back to register when demo login fails',
-      build: () {
-        when(() => mockLoginUseCase(demoParams))
-            .thenThrow(const AuthFailure(message: 'Invalid credentials'));
-        when(() => mockRegisterUseCase(demoParams))
-            .thenAnswer((_) async => demoUser);
-        return authBloc;
-      },
-      act: (bloc) => bloc.add(const AuthDemoLoginRequested()),
-      expect: () => [
-        const AuthLoading(),
-        const AuthAuthenticated(demoUser),
-      ],
-    );
-
-    blocTest<AuthBloc, AuthState>(
-      'emits [AuthLoading, AuthFailureState] when demo login and register both fail',
-      build: () {
-        when(() => mockLoginUseCase(demoParams))
-            .thenThrow(const AuthFailure(message: 'Invalid credentials'));
-        when(() => mockRegisterUseCase(demoParams))
-            .thenThrow(const NetworkFailure(message: 'No internet connection.'));
-        return authBloc;
-      },
-      act: (bloc) => bloc.add(const AuthDemoLoginRequested()),
-      expect: () => [
-        const AuthLoading(),
-        const AuthFailureState('No internet connection.'),
-      ],
-    );
-  });
-
   group('AuthLogoutRequested', () {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthLoading, AuthUnauthenticated] on logout',
