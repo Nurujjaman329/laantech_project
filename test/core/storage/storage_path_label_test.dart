@@ -21,5 +21,13 @@ void main() {
       final label = friendlyStoragePath('/tmp/orphan/file.bin');
       expect(label, 'Documents/pos_downloads/file.bin');
     });
+
+    test('prefers public Downloads label when provided', () {
+      final label = friendlyStoragePath(
+        '/data/user/0/com.example.laantech_task/app_flutter/pos_downloads/catalog.csv',
+        publicPathLabel: 'Downloads/POS_Transfers/catalog.csv',
+      );
+      expect(label, 'Downloads/POS_Transfers/catalog.csv');
+    });
   });
 }

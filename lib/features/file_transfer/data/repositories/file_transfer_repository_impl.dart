@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/errors/error_message_mapper.dart';
 import '../../../../core/notifications/notification_service.dart';
+import '../../../../core/notifications/transfer_foreground_service.dart';
+import '../../../../core/storage/public_downloads_publisher.dart';
 import '../../../../core/storage/storage_path_label.dart';
 import '../../domain/entities/file_item.dart';
 import '../../domain/entities/transfer_task.dart';
@@ -16,6 +18,8 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
   final FileRemoteDataSource remoteDataSource;
   final NotificationService notificationService;
   final SharedPreferences? sharedPreferences;
+  final TransferForegroundService foregroundService;
+  final PublicDownloadsPublisher publicDownloadsPublisher;
 
   final Map<String, TransferTask> _tasks = {};
   final Map<String, CancelToken> _cancelTokens = {};
@@ -28,7 +32,12 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
     required this.remoteDataSource,
     required this.notificationService,
     this.sharedPreferences,
-  }) {
+    TransferForegroundService? foregroundService,
+    PublicDownloadsPublisher? publicDownloadsPublisher,
+  })  : foregroundService =
+            foregroundService ?? NoopTransferForegroundService(),
+        publicDownloadsPublisher =
+            publicDownloadsPublisher ?? PublicDownloadsPublisher() {
     _loadSavedTasks();
   }
 
@@ -87,6 +96,8 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
     if (!_streamController.isClosed) {
       _streamController.add(task);
     }
+    // Keep typed dataSync FGS alive while any transfer is active (minimized OK).
+    unawaited(foregroundService.syncWithTasks(_tasks.values));
   }
 
   @override
@@ -307,12 +318,18 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
 
       if (cancelToken.isCancelled) return;
 
-      // Rename .part file to final destination
+      // Rename .part file to final destination (app-private; used for Open/Share)
       final finalFile = File(task.localPath);
       if (await finalFile.exists()) {
         await finalFile.delete();
       }
       await partFile.rename(task.localPath);
+
+      // Also publish into public Downloads so the file shows in the file manager.
+      final publicLabel = await publicDownloadsPublisher.publish(
+        sourcePath: task.localPath,
+        fileName: task.fileName,
+      );
 
       final completedTask = task.copyWith(
         status: TransferStatus.completed,
@@ -320,6 +337,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
         bytesTransferred: downloadedBytes,
         totalBytes: downloadedBytes,
         completedAt: DateTime.now(),
+        publicPathLabel: publicLabel,
       );
       _cancelTokens.remove(task.id);
       _emitTask(completedTask);
@@ -328,7 +346,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
         id: notifId,
         title: 'Download Complete',
         body:
-            '${task.fileName} saved to ${friendlyStoragePath(task.localPath)}',
+            '${task.fileName} saved to ${friendlyStoragePath(task.localPath, publicPathLabel: publicLabel)}',
         payload: 'download_${task.id}',
       );
     } catch (e) {

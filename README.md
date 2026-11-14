@@ -32,7 +32,7 @@ lib/
 │   ├── constants/             # API endpoints, timeouts, demo credentials, storage keys
 │   ├── errors/                # Domain Failures & Data Exceptions
 │   ├── network/               # DioClient (auth interceptor + debug API logs)
-│   ├── notifications/         # NotificationService + TransferNotificationRouter
+│   ├── notifications/         # NotificationService + FGS guard + tap router
 │   ├── storage/               # Secure token persistence & SharedPreferences fallback
 │   └── usecase/               # Base UseCase contract
 ├── features/
@@ -72,18 +72,18 @@ lib/
 | Download resume after kill / pause | **Byte resume** via `.part` file + HTTP `Range` / 206. |
 | Upload resume after pause / kill | **Restarts from 0%** (mock multipart API has no chunk protocol). |
 
-Transfers run as **async Dio work on the main Dart isolate**, owned by the repository singleton. This is **not** a separate Dart isolate pool, and **WorkManager / a bound Foreground Service are not implemented** in this version (see Known Limitations).
+Transfers run as **async Dio work on the main Dart isolate**, owned by the repository singleton (not a separate isolate pool). While any transfer is **running/queued**, Android starts a typed **`dataSync` Foreground Service** via `flutter_foreground_task` with an ongoing progress notification so the process can keep working when the app is **minimized**. Force-stop / swipe-kill still ends sockets; tasks restore as **paused** for manual Resume.
 
 ### Android limits (honest mapping)
 
 | Android restriction | Impact | What this module does today |
 | :--- | :--- | :--- |
-| **Doze / App Standby** | Network/CPU deferred when screen off & idle | Ongoing progress notifications while the process is alive; after kill, paused task + manual Resume. Battery-optimization exemption is **not** requested in code. |
-| **Android 14+ FGS types** | Background work without a typed FGS can be killed | Manifest declares `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_DATA_SYNC` and `WAKE_LOCK` for forward compatibility. **No `<service>` / FGS starter is wired yet** — notifications alone do not create a foreground service. |
+| **Doze / App Standby** | Network/CPU deferred when screen off & idle | Typed `dataSync` FGS + ongoing notification while transfers are active; after kill, paused task + manual Resume. Battery-optimization exemption is **not** requested. |
+| **Android 14+ FGS types** | Background work without a typed FGS can be killed | Manifest + `flutter_foreground_task` service with `foregroundServiceType="dataSync"`. Service starts/stops with active transfer count. |
 | **Cleartext (Android 9+)** | Blocks plain HTTP by default | `android:usesCleartextTraffic="true"` so the mock `http://108.136.142.112:90` API works. |
-| **OEM battery killers** | May kill the process minutes after minimize | Persist tasks; restore as paused; one-tap Resume. Downloads continue from `.part`. |
+| **OEM battery killers** | May kill the process minutes after minimize | FGS reduces risk while transferring; persist tasks; restore as paused; one-tap Resume. Downloads continue from `.part`. |
 
-`workmanager` is listed as an optional package in the assignment brief; it is **intentionally not used** here. Limits are documented instead of over-claiming headless survival.
+`workmanager` is listed as an optional package in the assignment brief; it is **intentionally not used** here. Headless restart after process death still needs WorkManager / a durable queue (see Known Limitations).
 
 ---
 
@@ -91,10 +91,10 @@ Transfers run as **async Dio work on the main Dart isolate**, owned by the repos
 
 ### Resumable downloads (HTTP `Range`)
 1. Chunks write to `{filename}.part` under app documents:  
-   `{ApplicationDocumentsDirectory}/pos_downloads/`
+   `{ApplicationDocumentsDirectory}/pos_downloads/` (reliable local resume target)
 2. On pause / failure / app kill, the `.part` file remains.
 3. On Resume: send `Range: bytes={existingLength}-`. On **HTTP 206**, append; on full **200**, restart cleanly.
-4. On success: atomic rename `.part` → final file; completion notification; **Open** via `open_filex`.
+4. On success: atomic rename `.part` → final file; **copy into public** `Downloads/POS_Transfers/` via Android **MediaStore**; completion notification; **Open** (`open_filex`) and **Share** (`share_plus`).
 
 ### Multipart upload pause / resume
 - **Pause** — Dio `CancelToken` abort → status `paused`.
@@ -135,14 +135,13 @@ Debug APK output:
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Current test suite: **81 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
+Current test suite: **91+ passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
 
 ---
 
 ## Known Limitations & What I’d Improve With More Time
 
 1. **Upload byte-level resume** — needs tus.io / S3 multipart (or similar) on the backend; client currently restarts multipart from 0%.
-2. **True OS background survival** — add Android `WorkManager` + typed `dataSync` Foreground Service, and iOS `BGProcessingTask`, with a durable queue (e.g. Drift/Isar) so transfers can continue or restart after process death without relying only on manual Resume.
+2. **Post-kill headless restart** — FGS covers **minimize** while the process lives. After process death, add Android `WorkManager` (+ durable queue such as Drift/Isar) and iOS `BGProcessingTask` so jobs can restart without only manual Resume.
 3. **Smarter network policies** — today we auto-pause on any offline and prompt Resume when back; could also pause on metered cellular and prefer Wi‑Fi only.
-4. **Public Downloads folder (optional)** — files currently land in app-private `pos_downloads/` (sensible & permission-light); MediaStore / system Downloads could be added for easier file-manager discovery.
-5. **Clear Finished persistence** — clearing finished tasks in the sheet currently updates UI state; tightening SharedPreferences sync would keep cleared items gone after restart.
+4. **Clear Finished persistence** — clearing finished tasks in the sheet currently updates UI state; tightening SharedPreferences sync would keep cleared items gone after restart.

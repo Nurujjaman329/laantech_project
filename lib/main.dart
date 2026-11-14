@@ -3,9 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
 import 'core/network/connectivity_service.dart';
 import 'core/network/dio_client.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/notifications/transfer_foreground_service.dart';
 import 'core/notifications/transfer_notification_router.dart';
 import 'core/storage/token_storage.dart';
 import 'core/theme/app_theme.dart';
@@ -35,6 +38,8 @@ final TransferNotificationRouter transferNotificationRouter =
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Port for FGS ↔ UI communication (required by flutter_foreground_task).
+  FlutterForegroundTask.initCommunicationPort();
 
   // Core Storage & Notifications
   final sharedPrefs = await SharedPreferences.getInstance();
@@ -48,6 +53,9 @@ void main() async {
   await notificationService.initialize(
     onSelectNotification: transferNotificationRouter.handlePayload,
   );
+
+  final transferForegroundService = TransferForegroundServiceImpl();
+  await transferForegroundService.init();
 
   // Cold start: app opened by tapping a transfer notification.
   final launchPayload = await notificationService.getLaunchPayload();
@@ -76,6 +84,7 @@ void main() async {
     remoteDataSource: fileRemoteDataSource,
     notificationService: notificationService,
     sharedPreferences: sharedPrefs,
+    foregroundService: transferForegroundService,
   );
 
   final getFilesUseCase = GetFilesUseCase(fileTransferRepository);

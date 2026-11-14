@@ -8,6 +8,9 @@ class TransferTask extends Equatable {
   final String id;
   final String fileName;
   final String localPath;
+  /// User-facing public Downloads label after MediaStore publish, e.g.
+  /// `Downloads/POS_Transfers/catalog.csv`.
+  final String? publicPathLabel;
   final String? remoteUrl;
   final TransferType type;
   final TransferStatus status;
@@ -22,6 +25,7 @@ class TransferTask extends Equatable {
     required this.id,
     required this.fileName,
     required this.localPath,
+    this.publicPathLabel,
     this.remoteUrl,
     required this.type,
     this.status = TransferStatus.queued,
@@ -43,6 +47,7 @@ class TransferTask extends Equatable {
     String? id,
     String? fileName,
     String? localPath,
+    String? publicPathLabel,
     String? remoteUrl,
     TransferType? type,
     TransferStatus? status,
@@ -58,6 +63,7 @@ class TransferTask extends Equatable {
       id: id ?? this.id,
       fileName: fileName ?? this.fileName,
       localPath: localPath ?? this.localPath,
+      publicPathLabel: publicPathLabel ?? this.publicPathLabel,
       remoteUrl: remoteUrl ?? this.remoteUrl,
       type: type ?? this.type,
       status: status ?? this.status,
@@ -76,6 +82,7 @@ class TransferTask extends Equatable {
       'id': id,
       'fileName': fileName,
       'localPath': localPath,
+      'publicPathLabel': publicPathLabel,
       'remoteUrl': remoteUrl,
       'type': type.name,
       'status': status.name,
@@ -93,6 +100,7 @@ class TransferTask extends Equatable {
       id: json['id'] as String,
       fileName: json['fileName'] as String,
       localPath: json['localPath'] as String,
+      publicPathLabel: json['publicPathLabel'] as String?,
       remoteUrl: json['remoteUrl'] as String?,
       type: TransferType.values.firstWhere(
         (e) => e.name == json['type'],
@@ -118,6 +126,7 @@ class TransferTask extends Equatable {
         id,
         fileName,
         localPath,
+        publicPathLabel,
         remoteUrl,
         type,
         status,

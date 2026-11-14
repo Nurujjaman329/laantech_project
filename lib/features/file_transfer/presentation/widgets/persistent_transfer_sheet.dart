@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../../../core/storage/share_downloaded_file.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
@@ -33,6 +34,24 @@ class PersistentTransferSheet extends StatelessWidget {
       return;
     }
     if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File not found on device storage'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareDownloadedFile(
+    BuildContext context,
+    TransferTask task,
+  ) async {
+    final ok = await shareDownloadedFile(
+      task.localPath,
+      fileName: task.fileName,
+    );
+    if (!ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('File not found on device storage'),
@@ -133,6 +152,10 @@ class PersistentTransferSheet extends StatelessWidget {
                       onOpen: task.isCompleted &&
                               task.type == TransferType.download
                           ? () => _openDownloadedFile(context, task.localPath)
+                          : null,
+                      onShare: task.isCompleted &&
+                              task.type == TransferType.download
+                          ? () => _shareDownloadedFile(context, task)
                           : null,
                     );
                   },

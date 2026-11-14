@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../../../core/storage/share_downloaded_file.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/pos_terminal_banner.dart';
@@ -192,6 +193,13 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
                                         await OpenFilex.open(task.localPath);
                                       }
                                     }
+                                  : null,
+                              onShare: task.isCompleted &&
+                                      task.type == TransferType.download
+                                  ? () => shareDownloadedFile(
+                                        task.localPath,
+                                        fileName: task.fileName,
+                                      )
                                   : null,
                             );
                           },

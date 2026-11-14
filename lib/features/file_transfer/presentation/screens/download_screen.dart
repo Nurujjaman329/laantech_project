@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../../../core/storage/share_downloaded_file.dart';
 import '../../../../core/storage/storage_path_label.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/pos_terminal_banner.dart';
@@ -50,6 +51,18 @@ class _DownloadScreenState extends State<DownloadScreen> {
     if (await file.exists()) {
       await OpenFilex.open(path);
     } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File not found on device storage'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareFile(String path, String fileName) async {
+    final ok = await shareDownloadedFile(path, fileName: fileName);
+    if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('File not found on device storage'),
@@ -165,6 +178,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                             TransferRetryRequested(task.id),
                           ),
                       onOpen: () => _openFile(task.localPath),
+                      onShare: () => _shareFile(task.localPath, task.fileName),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -189,6 +203,9 @@ class _DownloadScreenState extends State<DownloadScreen> {
                           ),
                       onOpen: task.isCompleted
                           ? () => _openFile(task.localPath)
+                          : null,
+                      onShare: task.isCompleted
+                          ? () => _shareFile(task.localPath, task.fileName)
                           : null,
                     ),
                   ),
@@ -247,6 +264,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
                                 ),
                                 onDownload: () => _downloadFile(file.name),
                                 onOpen: (path) => _openFile(path),
+                                onShare: (path) =>
+                                    _shareFile(path, file.name),
                                 onDelete: () => _confirmDelete(context, file),
                               ),
                               const SizedBox(height: 10),
@@ -273,6 +292,7 @@ class _RemoteFileCard extends StatelessWidget {
   final TransferTask? localTask;
   final VoidCallback onDownload;
   final ValueChanged<String> onOpen;
+  final ValueChanged<String> onShare;
   final VoidCallback onDelete;
 
   const _RemoteFileCard({
@@ -280,6 +300,7 @@ class _RemoteFileCard extends StatelessWidget {
     required this.localTask,
     required this.onDownload,
     required this.onOpen,
+    required this.onShare,
     required this.onDelete,
   });
 
@@ -328,7 +349,10 @@ class _RemoteFileCard extends StatelessWidget {
                   if (saved) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Saved to ${friendlyStoragePath(localTask!.localPath)}',
+                      'Saved to ${friendlyStoragePath(
+                        localTask!.localPath,
+                        publicPathLabel: localTask!.publicPathLabel,
+                      )}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -351,12 +375,17 @@ class _RemoteFileCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (saved)
+            if (saved) ...[
+              IconButton(
+                tooltip: 'Share',
+                onPressed: () => onShare(localTask!.localPath),
+                icon: const Icon(Icons.ios_share_rounded),
+              ),
               TextButton(
                 onPressed: () => onOpen(localTask!.localPath),
                 child: const Text('Open'),
-              )
-            else
+              ),
+            ] else
               FilledButton.tonal(
                 onPressed: downloading ? null : onDownload,
                 child: Text(downloading ? 'Busy' : 'Download'),

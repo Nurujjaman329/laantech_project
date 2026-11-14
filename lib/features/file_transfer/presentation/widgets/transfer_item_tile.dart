@@ -13,6 +13,7 @@ class TransferItemTile extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
   final VoidCallback? onOpen;
+  final VoidCallback? onShare;
 
   const TransferItemTile({
     super.key,
@@ -22,6 +23,7 @@ class TransferItemTile extends StatelessWidget {
     this.onCancel,
     this.onRetry,
     this.onOpen,
+    this.onShare,
   });
 
   String _formatBytes(int bytes) {
@@ -259,7 +261,10 @@ class TransferItemTile extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Saved to ${friendlyStoragePath(task.localPath)}',
+                      'Saved to ${friendlyStoragePath(
+                        task.localPath,
+                        publicPathLabel: task.publicPathLabel,
+                      )}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -268,6 +273,11 @@ class TransferItemTile extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (onShare != null)
+                    TextButton(
+                      onPressed: onShare,
+                      child: const Text('Share'),
+                    ),
                   if (onOpen != null)
                     TextButton(
                       onPressed: onOpen,
