@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -146,17 +147,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 24),
 
                       // Username Field
-                      TextFormField(
+                      AppTextFormField(
                         controller: _usernameController,
                         enabled: !isLoading,
-                        decoration: InputDecoration(
-                          labelText: 'Username',
-                          hintText: 'Enter your username',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                        labelText: 'Username',
+                        hintText: 'Enter your username',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        textInputAction: TextInputAction.next,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter a username';
@@ -170,29 +167,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
 
                       // Password Field
-                      TextFormField(
+                      AppTextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         enabled: !isLoading,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          hintText: 'Enter your password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                        labelText: 'Password',
+                        hintText: 'Enter your password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        textInputAction: _isRegisterMode
+                            ? TextInputAction.next
+                            : TextInputAction.done,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -208,26 +203,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Confirm Password (in Register Mode)
                       if (_isRegisterMode) ...[
-                        TextFormField(
+                        AppTextFormField(
                           controller: _confirmPasswordController,
                           obscureText: _obscurePassword,
                           enabled: !isLoading,
-                          decoration: InputDecoration(
-                            labelText: 'Confirm Password',
-                            hintText: 'Re-enter your password',
-                            prefixIcon: const Icon(Icons.lock_reset_rounded),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          labelText: 'Confirm Password',
+                          hintText: 'Re-enter your password',
+                          prefixIcon: const Icon(Icons.lock_reset_rounded),
+                          textInputAction: TextInputAction.done,
                           validator: (value) {
-                            if (_isRegisterMode) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'Passwords do not match';
-                              }
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm your password';
+                            }
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
                             }
                             return null;
                           },

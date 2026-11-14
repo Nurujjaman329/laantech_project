@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/widgets/app_text_field.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
@@ -88,31 +89,23 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
               // Search Input
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: TextField(
+                child: AppTextField(
                   controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search transfers by filename...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
-                    isDense: true,
-                    filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
+                  variant: AppTextFieldVariant.filled,
+                  isDense: true,
+                  hintText: 'Search transfers by filename...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          },
+                        )
+                      : null,
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
