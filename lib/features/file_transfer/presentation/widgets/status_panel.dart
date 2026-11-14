@@ -36,20 +36,20 @@ class StatusPanel extends StatelessWidget {
           side: BorderSide(color: colorScheme.outlineVariant),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 48, color: resolvedIconColor),
-              const SizedBox(height: 12),
+              Icon(icon, size: 40, color: resolvedIconColor),
+              const SizedBox(height: 10),
               Text(
                 title,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 message,
                 textAlign: TextAlign.center,
@@ -58,7 +58,7 @@ class StatusPanel extends StatelessWidget {
                 ),
               ),
               if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: onAction,
                   icon: const Icon(Icons.refresh_rounded),

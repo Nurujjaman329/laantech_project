@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/pos_terminal_banner.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -16,14 +18,17 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Settings & System',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
+        title: const Text('Terminal settings'),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          const PosTerminalBanner(
+            title: 'System console',
+            subtitle: 'Operator session, server link & engine specs',
+            icon: Icons.settings_suggest_rounded,
+          ),
+          const SizedBox(height: 16),
           // Section: Operator Account
           _buildSectionHeader(context, 'POS Operator'),
           BlocBuilder<AuthBloc, AuthState>(
@@ -179,8 +184,8 @@ class SettingsScreen extends StatelessWidget {
       child: Text(
         title,
         style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w800,
+          color: AppColors.posInk,
         ),
       ),
     );

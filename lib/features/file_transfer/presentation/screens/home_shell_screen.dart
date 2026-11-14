@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:laantech_task/core/notifications/transfer_notification_router.dart';
+import 'package:laantech_task/core/theme/app_colors.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
@@ -75,7 +77,6 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final screens = [
       DashboardScreen(onNavigateToTab: _navigateToTab),
@@ -149,8 +150,12 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               );
         }
       },
-      child: Scaffold(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
       appBar: AppBar(
+        backgroundColor: AppColors.posNavy,
+        foregroundColor: Colors.white,
         title: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             String username = 'POS Operator';
@@ -159,51 +164,71 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
             }
             return Row(
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Icon(
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: const Icon(
                     Icons.storefront_rounded,
                     size: 16,
-                    color: colorScheme.onPrimaryContainer,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      username,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Store #104 • Online',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 10,
+                      Text(
+                        'Store #104 • Online',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.posAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             );
           },
         ),
         actions: [
-          // Transfer Quick Sheet Shortcut
           BlocBuilder<TransferBloc, TransferState>(
             builder: (context, state) {
               final activeCount = state.activeTasks.length;
               return IconButton(
                 icon: Badge(
                   isLabelVisible: activeCount > 0,
-                  backgroundColor: colorScheme.error,
-                  label: Text('$activeCount'),
+                  backgroundColor: AppColors.posWarm,
+                  label: Text(
+                    '$activeCount',
+                    style: const TextStyle(
+                      color: AppColors.posNavy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   child: Icon(
-                    activeCount > 0 ? Icons.sync_rounded : Icons.swap_vert_circle_outlined,
-                    color: activeCount > 0 ? colorScheme.primary : colorScheme.onSurface,
+                    activeCount > 0
+                        ? Icons.sync_rounded
+                        : Icons.swap_vert_circle_outlined,
+                    color: activeCount > 0
+                        ? AppColors.posWarm
+                        : Colors.white70,
                   ),
                 ),
                 tooltip: 'Quick Transfers Sheet',
@@ -211,9 +236,8 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               );
             },
           ),
-          // Logout Button
           IconButton(
-            icon: Icon(Icons.logout_rounded, color: colorScheme.onSurfaceVariant),
+            icon: const Icon(Icons.logout_rounded, color: Colors.white70),
             tooltip: 'Logout',
             onPressed: () {
               context.read<AuthBloc>().add(const AuthLogoutRequested());
@@ -228,8 +252,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                 previous.isOffline != current.isOffline,
             builder: (context, state) {
               if (!state.isOffline) return const SizedBox.shrink();
+              final offlineScheme = Theme.of(context).colorScheme;
               return Material(
-                color: colorScheme.errorContainer,
+                color: offlineScheme.errorContainer,
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -238,14 +263,14 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                       Icon(
                         Icons.wifi_off_rounded,
                         size: 18,
-                        color: colorScheme.onErrorContainer,
+                        color: offlineScheme.onErrorContainer,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'You are offline. Transfers stay paused until network returns.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onErrorContainer,
+                            color: offlineScheme.onErrorContainer,
                           ),
                         ),
                       ),
@@ -275,8 +300,8 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           return NavigationBar(
             selectedIndex: _currentIndex,
             elevation: 2,
-            backgroundColor: colorScheme.surface,
-            indicatorColor: colorScheme.primaryContainer,
+            backgroundColor: Colors.white,
+            indicatorColor: AppColors.posInk.withValues(alpha: 0.12),
             onDestinationSelected: _navigateToTab,
             destinations: [
               const NavigationDestination(
@@ -297,12 +322,26 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               NavigationDestination(
                 icon: Badge(
                   isLabelVisible: activeCount > 0,
-                  label: Text('$activeCount'),
+                  backgroundColor: AppColors.posWarm,
+                  label: Text(
+                    '$activeCount',
+                    style: const TextStyle(
+                      color: AppColors.posNavy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   child: const Icon(Icons.swap_vert_circle_outlined),
                 ),
                 selectedIcon: Badge(
                   isLabelVisible: activeCount > 0,
-                  label: Text('$activeCount'),
+                  backgroundColor: AppColors.posWarm,
+                  label: Text(
+                    '$activeCount',
+                    style: const TextStyle(
+                      color: AppColors.posNavy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   child: const Icon(Icons.swap_vert_circle_rounded),
                 ),
                 label: 'Transfers',
@@ -317,6 +356,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         },
       ),
     ),
+      ),
     );
   }
 }

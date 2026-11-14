@@ -6,6 +6,7 @@ import 'package:open_filex/open_filex.dart';
 
 import '../../../../core/storage/storage_path_label.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/pos_terminal_banner.dart';
 import '../../domain/entities/file_item.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/file_list_bloc.dart';
@@ -105,7 +106,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Files & download'),
+        title: const Text('Server files'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -135,6 +136,14 @@ class _DownloadScreenState extends State<DownloadScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
               children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: PosTerminalBanner(
+                    title: 'Export / pull station',
+                    subtitle: 'Browse server catalogs and pull files to this device',
+                    icon: Icons.cloud_download_rounded,
+                  ),
+                ),
                 if (activeDownloads.isNotEmpty) ...[
                   SectionHeader(
                     title: 'Active downloads',

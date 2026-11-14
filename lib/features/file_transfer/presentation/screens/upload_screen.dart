@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/pos_terminal_banner.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
@@ -160,7 +161,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Import catalog'),
+        title: const Text('Catalog import'),
       ),
       body: BlocBuilder<TransferBloc, TransferState>(
         builder: (context, state) {
@@ -174,6 +175,14 @@ class _UploadScreenState extends State<UploadScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [
+              PosTerminalBanner(
+                title: 'Import station',
+                subtitle: 'Push catalogs & media packs to the POS server',
+                icon: Icons.cloud_upload_rounded,
+                statusLabel: activeCount > 0 ? '$activeCount LIVE' : 'READY',
+                online: true,
+              ),
+              const SizedBox(height: 12),
               if (activeCount > 0) ...[
                 Container(
                   width: double.infinity,

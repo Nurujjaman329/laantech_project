@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/pos_terminal_banner.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
@@ -80,6 +82,7 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
                       context.read<TransferBloc>().add(TransferRetryRequested(task.id));
                     }
                   },
+                  style: TextButton.styleFrom(foregroundColor: AppColors.posWarm),
                   icon: const Icon(Icons.replay_rounded, size: 16),
                   label: const Text('Retry All'),
                 ),
@@ -87,6 +90,15 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
           ),
           body: Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: PosTerminalBanner(
+                  title: 'Transfer console',
+                  subtitle: 'Monitor import / export jobs for this terminal',
+                  icon: Icons.swap_vert_circle_rounded,
+                  statusLabel: activeCount > 0 ? '$activeCount LIVE' : 'IDLE',
+                ),
+              ),
               // Search Input
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -254,14 +266,23 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
       icon = Icons.search_off_rounded;
     }
 
-    return Center(
-      child: StatusPanel(
-        icon: icon,
-        iconColor: colorScheme.outline.withValues(alpha: 0.7),
-        title: title,
-        message: message,
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: StatusPanel(
+                icon: icon,
+                iconColor: colorScheme.outline.withValues(alpha: 0.7),
+                title: title,
+                message: message,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -9,6 +9,13 @@ class AppColors {
   static const Color primary = Color(0xFF1E88E5);
   static const Color secondary = Color(0xFF546E7A);
 
+  // POS terminal atmosphere (login + shell chrome)
+  static const Color posNavy = Color(0xFF0B1F33);
+  static const Color posInk = Color(0xFF14324D);
+  static const Color posPanel = Color(0xFF1A3A58);
+  static const Color posAccent = Color(0xFF00BFA5); // terminal "online"
+  static const Color posWarm = Color(0xFFFFB74D); // terminal highlight
+
   // Surfaces (light reference; Theme still owns light/dark adaptation)
   static const Color surfaceLight = Color(0xFFF7F9FC);
   static const Color surfaceContainerLight = Color(0xFFEEF2F7);

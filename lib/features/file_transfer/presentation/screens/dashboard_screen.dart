@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
@@ -77,7 +78,8 @@ class DashboardScreen extends StatelessWidget {
                 Text(
                   'Quick Operations',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.posInk,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -92,7 +94,8 @@ class DashboardScreen extends StatelessWidget {
                     Text(
                       activeTasks.isNotEmpty ? 'Live Transfers' : 'Recent Transfers',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.posInk,
                       ),
                     ),
                     if (allTasks.isNotEmpty)
@@ -127,85 +130,96 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildStoreHeader(BuildContext context, ColorScheme colorScheme, int activeCount) {
-    final theme = Theme.of(context);
     final nowFormatted = DateFormat('EEEE, MMM d, yyyy').format(DateTime.now());
+    final statusColor =
+        activeCount > 0 ? AppColors.posWarm : AppColors.posAccent;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.posNavy, AppColors.posInk, AppColors.posPanel],
         ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.posNavy.withValues(alpha: 0.22),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.point_of_sale_rounded,
-                size: 28,
-                color: colorScheme.onPrimaryContainer,
-              ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'POS Terminal #104',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    nowFormatted,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+            child: const Icon(
+              Icons.point_of_sale_rounded,
+              size: 28,
+              color: Colors.white,
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: activeCount > 0
-                    ? colorScheme.primary.withValues(alpha: 0.15)
-                    : colorScheme.tertiary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    activeCount > 0 ? Icons.sync_rounded : Icons.check_circle_rounded,
-                    size: 14,
-                    color: activeCount > 0 ? colorScheme.primary : colorScheme.tertiary,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'POS Terminal #104',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    activeCount > 0 ? '$activeCount Syncing' : 'Online',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: activeCount > 0 ? colorScheme.primary : colorScheme.tertiary,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  nowFormatted,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 12,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: statusColor.withValues(alpha: 0.45)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  activeCount > 0
+                      ? Icons.sync_rounded
+                      : Icons.check_circle_rounded,
+                  size: 14,
+                  color: statusColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  activeCount > 0 ? '$activeCount Syncing' : 'Online',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
