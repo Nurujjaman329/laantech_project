@@ -31,14 +31,14 @@ class RecordingForegroundService implements TransferForegroundService {
   @override
   Future<void> syncWithTasks(Iterable<TransferTask> tasks) async {
     syncCalls++;
-    // Mimic production: once active transfers exist, FGS covers progress.
+    // Mimic production: coversProgress only while active work is synced
+    // (Impl sets this after start/update succeeds).
     final active = tasks.any(
       (t) =>
           t.status == TransferStatus.running ||
           t.status == TransferStatus.queued,
     );
-    if (active) coverProgress = true;
-    if (!active) coverProgress = false;
+    coverProgress = active;
   }
 
   @override

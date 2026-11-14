@@ -56,7 +56,7 @@ lib/
 ### Why this shape?
 1. **Single source of truth** — `FileTransferRepositoryImpl` owns in-flight Dio transfers and task state. Switching tabs does not cancel work.
 2. **BLoC as UI adapter** — `TransferBloc` listens to `transferStream` and fans progress into screens, banner, and Transfer Manager.
-3. **Notifications as OS surface** — While FGS is active, one aggregate ongoing notification covers progress (per-task progress toasts are skipped to avoid duplicates). Completion and error notifications still fire. Taps are routed by payload (`upload_<id>` / `download_<id>`) to the matching tab + sheet (including cold start).
+3. **Notifications as OS surface** — While the FGS is running successfully, its ongoing notification shows live progress (e.g. `Uploading catalog.csv · 63%` or `2 transfers · 41% avg`, throttled ≤1/s) and per-task progress tray notifications are skipped to avoid duplicates. If FGS start fails, per-task progress notifications still show. Completion and error notifications always fire. Taps are routed by payload (`upload_<id>` / `download_<id>`) to the matching tab + sheet (including cold start).
 
 ---
 
@@ -67,7 +67,7 @@ lib/
 | Scenario | Behavior |
 | :--- | :--- |
 | Switch tabs / leave Upload or Download screen | Transfer **continues** (repository-owned Dio request, not tied to widget lifecycle). |
-| App minimized while process stays alive | Typed `dataSync` FGS + aggregate progress notification keep the process eligible to run. |
+| App minimized while process stays alive | Typed `dataSync` FGS + ongoing notification with file name / % keep the process eligible to run. |
 | Process killed / swipe away from Recents | In-flight sockets die. Tasks persisted in SharedPreferences are restored as **paused** (`Transfer paused (app was closed)`). Operator taps **Resume**. |
 | Download resume after kill / pause | **Byte resume** via `.part` file + HTTP `Range` / 206 (HTTP **416** with a full `.part` finalizes as completed). |
 | Upload resume after pause / kill | **Restarts from 0%** (mock multipart API has no chunk protocol). |
@@ -138,7 +138,7 @@ These behaviors depend on OEM battery policy and cannot be fully proven in unit 
 
 ### Prerequisites
 - Flutter SDK 3.27+ (Dart 3.13+)
-- Android SDK: compileSdk 36, **minSdk 21** (set explicitly in `android/app/build.gradle.kts`)
+- Android SDK: compileSdk 36, **minSdk 24** (`flutter.minSdkVersion`; required by `flutter_secure_storage` / `shared_preferences_android`)
 - JDK 17
 
 ### Commands
@@ -154,7 +154,7 @@ Debug APK output:
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Current test suite: **109 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
+Current test suite: **116 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
 
 ---
 

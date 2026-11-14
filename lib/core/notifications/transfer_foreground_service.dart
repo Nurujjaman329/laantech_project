@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../../features/file_transfer/domain/entities/transfer_task.dart';
@@ -25,6 +26,23 @@ class _TransferForegroundTaskHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {}
+}
+
+/// Builds the FGS notification body for active (running/queued) transfers.
+@visibleForTesting
+String formatTransferForegroundProgressText(List<TransferTask> active) {
+  if (active.isEmpty) return '';
+  if (active.length == 1) {
+    final t = active.first;
+    final verb =
+        t.type == TransferType.upload ? 'Uploading' : 'Downloading';
+    final pct = (t.progress * 100).round();
+    return '$verb ${t.fileName} · $pct%';
+  }
+  final avg =
+      active.map((t) => t.progress).reduce((a, b) => a + b) / active.length;
+  final pct = (avg * 100).round();
+  return '${active.length} transfers · $pct% avg';
 }
 
 /// Starts / updates / stops a typed `dataSync` foreground service based on
@@ -56,6 +74,18 @@ class TransferForegroundServiceImpl implements TransferForegroundService {
 
   /// Optional clock for tests.
   final DateTime Function() _now;
+  final bool Function() _isAndroid;
+  final Future<bool> Function() _isRunningService;
+  final Future<ServiceRequestResult> Function({
+    required String notificationTitle,
+    required String notificationText,
+  }) _startService;
+  final Future<ServiceRequestResult> Function({
+    required String notificationTitle,
+    required String notificationText,
+  }) _updateService;
+  final Future<ServiceRequestResult> Function() _stopService;
+  final bool _bypassNativeInit;
 
   bool _initialized = false;
   bool _coversProgress = false;
@@ -63,15 +93,53 @@ class TransferForegroundServiceImpl implements TransferForegroundService {
   String? _lastActiveSignature;
   DateTime? _lastTextUpdateAt;
 
-  TransferForegroundServiceImpl({DateTime Function()? now})
-      : _now = now ?? DateTime.now;
+  TransferForegroundServiceImpl({
+    DateTime Function()? now,
+    bool Function()? isAndroid,
+    Future<bool> Function()? isRunningService,
+    Future<ServiceRequestResult> Function({
+      required String notificationTitle,
+      required String notificationText,
+    })? startService,
+    Future<ServiceRequestResult> Function({
+      required String notificationTitle,
+      required String notificationText,
+    })? updateService,
+    Future<ServiceRequestResult> Function()? stopService,
+    this._bypassNativeInit = false,
+  })  : _now = now ?? DateTime.now,
+        _isAndroid = isAndroid ?? (() => Platform.isAndroid),
+        _isRunningService = isRunningService ??
+            (() => FlutterForegroundTask.isRunningService),
+        _startService = startService ??
+            (({
+              required String notificationTitle,
+              required String notificationText,
+            }) =>
+                FlutterForegroundTask.startService(
+                  serviceId: _serviceId,
+                  serviceTypes: const [ForegroundServiceTypes.dataSync],
+                  notificationTitle: notificationTitle,
+                  notificationText: notificationText,
+                  callback: startTransferForegroundCallback,
+                )),
+        _updateService = updateService ??
+            (({
+              required String notificationTitle,
+              required String notificationText,
+            }) =>
+                FlutterForegroundTask.updateService(
+                  notificationTitle: notificationTitle,
+                  notificationText: notificationText,
+                )),
+        _stopService = stopService ?? FlutterForegroundTask.stopService;
 
   @override
   bool get coversProgressNotification => _coversProgress;
 
   @override
   Future<void> init() async {
-    if (_initialized || !Platform.isAndroid) {
+    if (_initialized || !_isAndroid() || _bypassNativeInit) {
       _initialized = true;
       return;
     }
@@ -115,7 +183,7 @@ class TransferForegroundServiceImpl implements TransferForegroundService {
 
   @override
   Future<void> syncWithTasks(Iterable<TransferTask> tasks) async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid()) {
       _coversProgress = false;
       return;
     }
@@ -138,50 +206,50 @@ class TransferForegroundServiceImpl implements TransferForegroundService {
       _lastText = null;
       _lastActiveSignature = signature;
       _lastTextUpdateAt = null;
-      if (await FlutterForegroundTask.isRunningService) {
-        await FlutterForegroundTask.stopService();
+      if (await _isRunningService()) {
+        await _stopService();
       }
       return;
     }
 
-    // Short aggregate copy — avoids duplicating per-file progress tray notifs.
     final title = active.length == 1
-        ? 'POS transfer running'
-        : '${active.length} transfers running';
-    final text = 'Tap to return to the app';
+        ? 'POS transfer'
+        : '${active.length} POS transfers';
+    final text = formatTransferForegroundProgressText(active);
     final combined = '$title|$text';
 
     final textDue = _lastTextUpdateAt == null ||
         now.difference(_lastTextUpdateAt!) >= _textThrottle;
     final textChanged = combined != _lastText;
 
-    // Mark covering as soon as we intend to keep FGS up (before await), so
-    // concurrent progress callbacks skip duplicate tray updates.
-    _coversProgress = true;
-
-    if (await FlutterForegroundTask.isRunningService) {
+    if (await _isRunningService()) {
       if (!activeSetChanged && !(textDue && textChanged)) {
         return;
       }
-      _lastActiveSignature = signature;
-      _lastText = combined;
-      _lastTextUpdateAt = now;
-      await FlutterForegroundTask.updateService(
+      final result = await _updateService(
         notificationTitle: title,
         notificationText: text,
       );
+      if (result is ServiceRequestSuccess) {
+        _coversProgress = true;
+        _lastActiveSignature = signature;
+        _lastText = combined;
+        _lastTextUpdateAt = now;
+      }
       return;
     }
 
-    _lastActiveSignature = signature;
-    _lastText = combined;
-    _lastTextUpdateAt = now;
-    await FlutterForegroundTask.startService(
-      serviceId: _serviceId,
-      serviceTypes: const [ForegroundServiceTypes.dataSync],
+    final result = await _startService(
       notificationTitle: title,
       notificationText: text,
-      callback: startTransferForegroundCallback,
     );
+    if (result is ServiceRequestSuccess) {
+      _coversProgress = true;
+      _lastActiveSignature = signature;
+      _lastText = combined;
+      _lastTextUpdateAt = now;
+    } else {
+      _coversProgress = false;
+    }
   }
 }
