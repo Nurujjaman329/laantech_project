@@ -22,7 +22,11 @@ class FileListBloc extends Bloc<FileListEvent, FileListState> {
     FileListFetchRequested event,
     Emitter<FileListState> emit,
   ) async {
-    emit(const FileListLoading());
+    // Keep existing items visible on silent refresh (upload-complete / tab switch).
+    final silent = state is FileListLoaded;
+    if (!silent) {
+      emit(const FileListLoading());
+    }
     try {
       final files = await getFilesUseCase(NoParams());
       emit(FileListLoaded(files));

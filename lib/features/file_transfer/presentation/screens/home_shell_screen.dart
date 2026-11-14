@@ -8,6 +8,9 @@ import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
 
+import '../../domain/entities/transfer_task.dart';
+import '../bloc/file_list_bloc.dart';
+import '../bloc/file_list_event.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
@@ -18,6 +21,26 @@ import 'download_screen.dart';
 import 'settings_screen.dart';
 import 'transfer_manager_screen.dart';
 import 'upload_screen.dart';
+
+/// Download tab index in the bottom [NavigationBar].
+const int kDownloadTabIndex = 2;
+
+/// True when any upload task newly reaches [TransferStatus.completed].
+@visibleForTesting
+bool hasNewlyCompletedUpload(TransferState previous, TransferState current) {
+  for (final entry in current.tasks.entries) {
+    final task = entry.value;
+    if (task.type != TransferType.upload ||
+        task.status != TransferStatus.completed) {
+      continue;
+    }
+    final prior = previous.tasks[entry.key];
+    if (prior == null || prior.status != TransferStatus.completed) {
+      return true;
+    }
+  }
+  return false;
+}
 
 class HomeShellScreen extends StatefulWidget {
   final TransferNotificationRouter? notificationRouter;
@@ -67,10 +90,14 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
   }
 
   void _navigateToTab(int index) {
-    if (index >= 0 && index < 5) {
-      setState(() {
-        _currentIndex = index;
-      });
+    if (index < 0 || index >= 5) return;
+    final switchedToDownload =
+        index == kDownloadTabIndex && _currentIndex != kDownloadTabIndex;
+    setState(() {
+      _currentIndex = index;
+    });
+    if (switchedToDownload) {
+      context.read<FileListBloc>().add(const FileListFetchRequested());
     }
   }
 
@@ -86,91 +113,101 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       const SettingsScreen(),
     ];
 
-    return BlocListener<TransferBloc, TransferState>(
-      listenWhen: (previous, current) =>
-          previous.isOffline != current.isOffline ||
-          previous.showNetworkRestoredPrompt !=
-              current.showNetworkRestoredPrompt ||
-          previous.errorMessage != current.errorMessage ||
-          previous.sessionExpired != current.sessionExpired,
-      listener: (context, state) {
-        final messenger = ScaffoldMessenger.of(context);
-        final colorScheme = Theme.of(context).colorScheme;
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TransferBloc, TransferState>(
+          listenWhen: hasNewlyCompletedUpload,
+          listener: (context, state) {
+            context.read<FileListBloc>().add(const FileListFetchRequested());
+          },
+        ),
+        BlocListener<TransferBloc, TransferState>(
+          listenWhen: (previous, current) =>
+              previous.isOffline != current.isOffline ||
+              previous.showNetworkRestoredPrompt !=
+                  current.showNetworkRestoredPrompt ||
+              previous.errorMessage != current.errorMessage ||
+              previous.sessionExpired != current.sessionExpired,
+          listener: (context, state) {
+            final messenger = ScaffoldMessenger.of(context);
+            final colorScheme = Theme.of(context).colorScheme;
 
-        if (state.sessionExpired) {
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(
-                  state.errorMessage ??
-                      'Session expired. Please sign in again.',
-                ),
-                backgroundColor: colorScheme.error,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          context
-              .read<TransferBloc>()
-              .add(const TransferSessionExpiredHandled());
-          context.read<AuthBloc>().add(const AuthLogoutRequested());
-          return;
-        }
+            if (state.sessionExpired) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      state.errorMessage ??
+                          'Session expired. Please sign in again.',
+                    ),
+                    backgroundColor: colorScheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              context
+                  .read<TransferBloc>()
+                  .add(const TransferSessionExpiredHandled());
+              context.read<AuthBloc>().add(const AuthLogoutRequested());
+              return;
+            }
 
-        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: colorScheme.error,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          context.read<TransferBloc>().add(const TransferErrorCleared());
-          return;
-        }
+            if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: colorScheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              context.read<TransferBloc>().add(const TransferErrorCleared());
+              return;
+            }
 
-        if (state.isOffline) {
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Network offline — active transfers were paused.',
-                ),
-                duration: Duration(seconds: 4),
-              ),
-            );
-          return;
-        }
+            if (state.isOffline) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Network offline — active transfers were paused.',
+                    ),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+              return;
+            }
 
-        if (state.showNetworkRestoredPrompt) {
-          final count = state.networkPausedTaskIds.length;
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Network restored. Resume $count paused '
-                  '${count == 1 ? 'transfer' : 'transfers'}?',
-                ),
-                duration: const Duration(seconds: 10),
-                action: SnackBarAction(
-                  label: 'Resume',
-                  onPressed: () {
-                    context.read<TransferBloc>().add(
-                          const TransferResumeNetworkPausedRequested(),
-                        );
-                  },
-                ),
-              ),
-            );
-          context.read<TransferBloc>().add(
-                const TransferDismissNetworkPromptRequested(),
-              );
-        }
-      },
+            if (state.showNetworkRestoredPrompt) {
+              final count = state.networkPausedTaskIds.length;
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Network restored. Resume $count paused '
+                      '${count == 1 ? 'transfer' : 'transfers'}?',
+                    ),
+                    duration: const Duration(seconds: 10),
+                    action: SnackBarAction(
+                      label: 'Resume',
+                      onPressed: () {
+                        context.read<TransferBloc>().add(
+                              const TransferResumeNetworkPausedRequested(),
+                            );
+                      },
+                    ),
+                  ),
+                );
+              context.read<TransferBloc>().add(
+                    const TransferDismissNetworkPromptRequested(),
+                  );
+            }
+          },
+        ),
+      ],
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
         child: Scaffold(

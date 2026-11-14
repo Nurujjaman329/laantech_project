@@ -72,6 +72,24 @@ void main() {
         const FileListError('Server unreachable'),
       ],
     );
+
+    blocTest<FileListBloc, FileListState>(
+      'silent refresh skips FileListLoading when list already loaded',
+      build: () {
+        when(() => mockGetFilesUseCase(any())).thenAnswer(
+          (_) async => [sampleFiles[1]],
+        );
+        return fileListBloc;
+      },
+      seed: () => const FileListLoaded(sampleFiles),
+      act: (bloc) => bloc.add(const FileListFetchRequested()),
+      expect: () => [
+        FileListLoaded([sampleFiles[1]]),
+      ],
+      verify: (_) {
+        verify(() => mockGetFilesUseCase(NoParams())).called(1);
+      },
+    );
   });
 
   group('FileListDeleteRequested', () {
