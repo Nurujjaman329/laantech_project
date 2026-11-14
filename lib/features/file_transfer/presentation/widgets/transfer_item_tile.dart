@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/errors/error_message_mapper.dart';
+import '../../../../core/storage/storage_path_label.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/transfer_task.dart';
+import 'transfer_status_badge.dart';
 
 class TransferItemTile extends StatelessWidget {
   final TransferTask task;
@@ -8,6 +12,7 @@ class TransferItemTile extends StatelessWidget {
   final VoidCallback? onResume;
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
+  final VoidCallback? onOpen;
 
   const TransferItemTile({
     super.key,
@@ -16,6 +21,7 @@ class TransferItemTile extends StatelessWidget {
     this.onResume,
     this.onCancel,
     this.onRetry,
+    this.onOpen,
   });
 
   String _formatBytes(int bytes) {
@@ -47,18 +53,44 @@ class TransferItemTile extends StatelessWidget {
     }
   }
 
+  String get _failedMessage {
+    final raw = task.errorMessage;
+    if (raw == null || raw.trim().isEmpty) {
+      return 'Connection lost. Retry when you\'re online.';
+    }
+    return ErrorMessageMapper.from(
+      raw,
+      fallback: 'Transfer failed. Please try again.',
+    );
+  }
+
+  String get _pausedMessage {
+    final raw = task.errorMessage;
+    if (raw == null || raw.trim().isEmpty) {
+      return 'Transfer paused. Tap Resume to continue.';
+    }
+    return ErrorMessageMapper.from(
+      raw,
+      fallback: 'Transfer paused. Tap Resume to continue.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isUpload = task.type == TransferType.upload;
+    final statusColor = _getStatusColor(theme);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0.5,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+          color: task.isFailed
+              ? colorScheme.error.withValues(alpha: 0.35)
+              : colorScheme.outlineVariant.withValues(alpha: 0.8),
         ),
       ),
       child: Padding(
@@ -67,14 +99,19 @@ class TransferItemTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: _getStatusColor(theme).withValues(alpha: 0.15),
+                  backgroundColor: statusColor.withValues(alpha: 0.15),
                   child: Icon(
-                    isUpload ? Icons.upload_rounded : Icons.download_rounded,
+                    task.isFailed
+                        ? Icons.error_outline_rounded
+                        : (isUpload
+                            ? Icons.upload_rounded
+                            : Icons.download_rounded),
                     size: 20,
-                    color: _getStatusColor(theme),
+                    color: statusColor,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -82,26 +119,35 @@ class TransferItemTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        task.fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              task.fileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TransferStatusBadge(task: task),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_formatBytes(task.bytesTransferred)} of ${_formatBytes(task.totalBytes)} • ${(task.progress * 100).toStringAsFixed(1)}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      if (!task.isFailed) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_formatBytes(task.bytesTransferred)} of ${_formatBytes(task.totalBytes)} • ${(task.progress * 100).toStringAsFixed(1)}%',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
-                // Action Buttons
                 if (task.isRunning)
                   IconButton(
                     icon: const Icon(
@@ -119,17 +165,10 @@ class TransferItemTile extends StatelessWidget {
                     ),
                     tooltip: 'Resume',
                     onPressed: onResume,
-                  )
-                else if (task.isFailed)
-                  IconButton(
-                    icon: Icon(
-                      Icons.refresh_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                    tooltip: 'Retry',
-                    onPressed: onRetry,
                   ),
-                if (!task.isCompleted)
+                if (!task.isCompleted &&
+                    !task.isCancelled &&
+                    !task.isFailed)
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 20),
                     tooltip: 'Cancel',
@@ -137,24 +176,104 @@ class TransferItemTile extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
-            // Progress Bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: task.isCompleted ? 1.0 : (task.progress > 0 ? task.progress : null),
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(_getStatusColor(theme)),
-                minHeight: 6,
-              ),
-            ),
-            if (task.errorMessage != null && task.isFailed) ...[
-              const SizedBox(height: 6),
-              Text(
-                task.errorMessage!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+            if (task.isRunning || task.isPaused || task.isCompleted) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: task.isCompleted
+                      ? 1.0
+                      : (task.progress > 0 ? task.progress : null),
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  minHeight: 6,
                 ),
+              ),
+            ],
+            if (task.isPaused) ...[
+              const SizedBox(height: 8),
+              Text(
+                _pausedMessage,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (onResume != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: onResume,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('Resume'),
+                  ),
+                ),
+              ],
+            ],
+            if (task.isFailed) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _failedMessage,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (onCancel != null)
+                    TextButton(
+                      onPressed: onCancel,
+                      child: const Text('Dismiss'),
+                    ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ],
+            if (task.isCompleted && task.type == TransferType.download) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.folder_rounded,
+                    size: 16,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Saved to ${friendlyStoragePath(task.localPath)}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (onOpen != null)
+                    TextButton(
+                      onPressed: onOpen,
+                      child: const Text('Open'),
+                    ),
+                ],
               ),
             ],
           ],

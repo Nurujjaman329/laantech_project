@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/errors/error_message_mapper.dart';
 import '../../../../core/notifications/notification_service.dart';
+import '../../../../core/storage/storage_path_label.dart';
 import '../../domain/entities/file_item.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../../domain/repositories/file_transfer_repository.dart';
@@ -170,7 +172,10 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
       }
       final failedTask = task.copyWith(
         status: TransferStatus.failed,
-        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Upload failed.',
+        ),
       );
       _cancelTokens.remove(task.id);
       _emitTask(failedTask);
@@ -178,7 +183,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
       await notificationService.showErrorNotification(
         id: notifId,
         title: 'Upload Failed',
-        body: 'Error uploading ${task.fileName}: ${failedTask.errorMessage}',
+        body: '${task.fileName}: ${failedTask.errorMessage}',
         payload: 'upload_${task.id}',
       );
     }
@@ -322,7 +327,8 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
       await notificationService.showCompletionNotification(
         id: notifId,
         title: 'Download Complete',
-        body: '${task.fileName} saved to device.',
+        body:
+            '${task.fileName} saved to ${friendlyStoragePath(task.localPath)}',
         payload: 'download_${task.id}',
       );
     } catch (e) {
@@ -333,7 +339,10 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
 
       final failedTask = task.copyWith(
         status: TransferStatus.failed,
-        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Download failed.',
+        ),
       );
       _cancelTokens.remove(task.id);
       _emitTask(failedTask);
@@ -341,7 +350,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
       await notificationService.showErrorNotification(
         id: notifId,
         title: 'Download Failed',
-        body: 'Error downloading ${task.fileName}: ${failedTask.errorMessage}',
+        body: '${task.fileName}: ${failedTask.errorMessage}',
         payload: 'download_${task.id}',
       );
     }

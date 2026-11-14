@@ -1,8 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:open_filex/open_filex.dart';
+
+import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
+import 'status_panel.dart';
 import 'transfer_item_tile.dart';
 
 class PersistentTransferSheet extends StatelessWidget {
@@ -18,6 +24,22 @@ class PersistentTransferSheet extends StatelessWidget {
         child: const PersistentTransferSheet(),
       ),
     );
+  }
+
+  Future<void> _openDownloadedFile(BuildContext context, String path) async {
+    final file = File(path);
+    if (await file.exists()) {
+      await OpenFilex.open(path);
+      return;
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File not found on device storage'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -80,24 +102,12 @@ class PersistentTransferSheet extends StatelessWidget {
               builder: (context, state) {
                 final tasks = state.allTasks;
                 if (tasks.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.cloud_done_outlined,
-                          size: 56,
-                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No active or recent transfers',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  return const StatusPanel(
+                    icon: Icons.cloud_done_outlined,
+                    title: 'No transfers yet',
+                    message:
+                        'Uploads and downloads will show up here with live status.',
+                    padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
                   );
                 }
 
@@ -120,6 +130,10 @@ class PersistentTransferSheet extends StatelessWidget {
                       onRetry: () => context.read<TransferBloc>().add(
                             TransferRetryRequested(task.id),
                           ),
+                      onOpen: task.isCompleted &&
+                              task.type == TransferType.download
+                          ? () => _openDownloadedFile(context, task.localPath)
+                          : null,
                     );
                   },
                 );

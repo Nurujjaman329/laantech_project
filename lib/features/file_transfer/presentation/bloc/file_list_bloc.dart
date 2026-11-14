@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/errors/error_message_mapper.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../domain/usecases/transfer_usecases.dart';
 import 'file_list_event.dart';
@@ -26,7 +27,9 @@ class FileListBloc extends Bloc<FileListEvent, FileListState> {
       final files = await getFilesUseCase(NoParams());
       emit(FileListLoaded(files));
     } catch (e) {
-      emit(FileListError(e.toString().replaceFirst('Exception: ', '')));
+      emit(FileListError(
+        ErrorMessageMapper.from(e, fallback: 'Could not load server files.'),
+      ));
     }
   }
 
@@ -38,7 +41,9 @@ class FileListBloc extends Bloc<FileListEvent, FileListState> {
       final files = await getFilesUseCase(NoParams());
       emit(FileListLoaded(files));
     } catch (e) {
-      emit(FileListError(e.toString().replaceFirst('Exception: ', '')));
+      emit(FileListError(
+        ErrorMessageMapper.from(e, fallback: 'Could not refresh server files.'),
+      ));
     }
   }
 
@@ -52,7 +57,12 @@ class FileListBloc extends Bloc<FileListEvent, FileListState> {
       final files = await getFilesUseCase(NoParams());
       emit(FileListLoaded(files));
     } catch (e) {
-      emit(FileListError('Failed to delete ${event.fileName}: $e'));
+      emit(FileListError(
+        ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to delete ${event.fileName}.',
+        ),
+      ));
     }
   }
 }

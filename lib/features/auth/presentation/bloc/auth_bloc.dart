@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/errors/error_message_mapper.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../domain/usecases/get_auth_status_usecase.dart';
@@ -57,9 +58,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthAuthenticated(token));
     } on Failure catch (failure) {
-      emit(AuthFailureState(failure.message));
+      emit(AuthFailureState(ErrorMessageMapper.from(failure)));
     } catch (e) {
-      emit(AuthFailureState(e.toString()));
+      emit(AuthFailureState(
+        ErrorMessageMapper.from(e, fallback: 'Sign in failed.'),
+      ));
     }
   }
 
@@ -77,9 +80,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthAuthenticated(token));
     } on Failure catch (failure) {
-      emit(AuthFailureState(failure.message));
+      emit(AuthFailureState(ErrorMessageMapper.from(failure)));
     } catch (e) {
-      emit(AuthFailureState(e.toString()));
+      emit(AuthFailureState(
+        ErrorMessageMapper.from(e, fallback: 'Registration failed.'),
+      ));
     }
   }
 

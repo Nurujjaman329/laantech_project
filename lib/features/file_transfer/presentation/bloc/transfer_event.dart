@@ -97,3 +97,7 @@ class TransferResumeNetworkPausedRequested extends TransferEvent {
 class TransferDismissNetworkPromptRequested extends TransferEvent {
   const TransferDismissNetworkPromptRequested();
 }
+
+class TransferErrorCleared extends TransferEvent {
+  const TransferErrorCleared();
+}

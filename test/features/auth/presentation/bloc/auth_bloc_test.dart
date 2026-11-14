@@ -110,7 +110,7 @@ void main() {
       )),
       expect: () => [
         const AuthLoading(),
-        const AuthFailureState('Invalid credentials'),
+        const AuthFailureState('Invalid username or password.'),
       ],
     );
   });

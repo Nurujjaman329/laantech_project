@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../../../core/widgets/app_text_field.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
+import '../widgets/status_panel.dart';
 import '../widgets/transfer_item_tile.dart';
 
 enum TransferFilter { all, active, completed, failed }
@@ -67,10 +71,7 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(
-              'Transfer Manager',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
+            title: const Text('Transfers'),
             actions: [
               if (failedCount > 0)
                 TextButton.icon(
@@ -171,6 +172,15 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
                               onResume: () => context.read<TransferBloc>().add(TransferResumeRequested(task.id)),
                               onCancel: () => context.read<TransferBloc>().add(TransferCancelRequested(task.id)),
                               onRetry: () => context.read<TransferBloc>().add(TransferRetryRequested(task.id)),
+                              onOpen: task.isCompleted &&
+                                      task.type == TransferType.download
+                                  ? () async {
+                                      final file = File(task.localPath);
+                                      if (await file.exists()) {
+                                        await OpenFilex.open(task.localPath);
+                                      }
+                                    }
+                                  : null,
                             );
                           },
                         ),
@@ -220,53 +230,37 @@ class _TransferManagerScreenState extends State<TransferManagerScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
-    final theme = Theme.of(context);
-
-    String message = 'No transfer records found';
+    String title = 'No transfers yet';
+    String message = 'Start an upload or download to see activity here.';
     IconData icon = Icons.inbox_rounded;
 
     if (_selectedFilter == TransferFilter.active) {
-      message = 'No active uploads or downloads';
+      title = 'No active transfers';
+      message = 'Nothing is uploading or downloading right now.';
       icon = Icons.sync_disabled_rounded;
     } else if (_selectedFilter == TransferFilter.completed) {
-      message = 'No completed transfers yet';
+      title = 'No completed transfers';
+      message = 'Finished uploads and downloads will appear here.';
       icon = Icons.check_circle_outline_rounded;
     } else if (_selectedFilter == TransferFilter.failed) {
-      message = 'No failed transfers. System running cleanly!';
+      title = 'No failed transfers';
+      message = 'Looking good — no failures in the queue.';
       icon = Icons.verified_rounded;
     }
 
+    if (_searchQuery.isNotEmpty) {
+      title = 'No matches';
+      message = 'No transfer matched “$_searchQuery”.';
+      icon = Icons.search_off_rounded;
+    }
+
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 56,
-              color: colorScheme.outline.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (_searchQuery.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'No match for "$_searchQuery"',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
-              ),
-            ],
-          ],
-        ),
+      child: StatusPanel(
+        icon: icon,
+        iconColor: colorScheme.outline.withValues(alpha: 0.7),
+        title: title,
+        message: message,
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       ),
     );
   }

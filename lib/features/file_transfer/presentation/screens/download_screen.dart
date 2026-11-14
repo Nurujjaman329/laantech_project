@@ -1,7 +1,12 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
+
+import '../../../../core/storage/storage_path_label.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/file_item.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../bloc/file_list_bloc.dart';
 import '../bloc/file_list_event.dart';
@@ -9,6 +14,8 @@ import '../bloc/file_list_state.dart';
 import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
+import '../widgets/section_header.dart';
+import '../widgets/status_panel.dart';
 import '../widgets/transfer_item_tile.dart';
 
 class DownloadScreen extends StatefulWidget {
@@ -30,33 +37,78 @@ class _DownloadScreenState extends State<DownloadScreen> {
           TransferDownloadRequested(fileName: fileName),
         );
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Starting download: $fileName')),
+      SnackBar(
+        content: Text('Downloading $fileName…'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
-  void _openFile(String path) async {
+  Future<void> _openFile(String path) async {
     final file = File(path);
     if (await file.exists()) {
       await OpenFilex.open(path);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File not found on storage')),
-        );
-      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File not found on device storage'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+  }
+
+  void _confirmDelete(BuildContext context, FileItem file) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete file?'),
+        content: Text(
+          'Remove "${file.name}" from the POS server? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<FileListBloc>().add(
+                    FileListDeleteRequested(file.name),
+                  );
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TransferTask? _latestDownloadFor(
+    List<TransferTask> downloads,
+    String fileName,
+  ) {
+    for (final task in downloads) {
+      if (task.fileName == fileName) return task;
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Server Files & Downloads'),
+        title: const Text('Files & download'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh file list',
             onPressed: () {
               context.read<FileListBloc>().add(const FileListRefreshRequested());
@@ -69,191 +121,132 @@ class _DownloadScreenState extends State<DownloadScreen> {
           final downloadTasks = transferState.allTasks
               .where((t) => t.type == TransferType.download)
               .toList();
+          final activeDownloads = downloadTasks
+              .where((t) => t.isRunning || t.isPaused || t.status == TransferStatus.queued)
+              .toList();
+          final recentDownloads = downloadTasks
+              .where((t) => t.isCompleted || t.isFailed || t.isCancelled)
+              .toList();
 
           return RefreshIndicator(
             onRefresh: () async {
               context.read<FileListBloc>().add(const FileListRefreshRequested());
             },
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 96),
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
               children: [
-                // Active Download Tasks Section
-                if (downloadTasks.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Download Queue',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                if (activeDownloads.isNotEmpty) ...[
+                  SectionHeader(
+                    title: 'Active downloads',
+                    count: activeDownloads.length,
+                  ),
+                  ...activeDownloads.map(
+                    (task) => TransferItemTile(
+                      task: task,
+                      onPause: () => context.read<TransferBloc>().add(
+                            TransferPauseRequested(task.id),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Badge.count(
-                          count: downloadTasks.length,
-                          backgroundColor: theme.colorScheme.secondaryContainer,
-                          textColor: theme.colorScheme.onSecondaryContainer,
-                        ),
-                      ],
+                      onResume: () => context.read<TransferBloc>().add(
+                            TransferResumeRequested(task.id),
+                          ),
+                      onCancel: () => context.read<TransferBloc>().add(
+                            TransferCancelRequested(task.id),
+                          ),
+                      onRetry: () => context.read<TransferBloc>().add(
+                            TransferRetryRequested(task.id),
+                          ),
+                      onOpen: () => _openFile(task.localPath),
                     ),
                   ),
-                  ...downloadTasks.map((task) => Column(
-                        children: [
-                          TransferItemTile(
-                            task: task,
-                            onPause: () => context.read<TransferBloc>().add(
-                                  TransferPauseRequested(task.id),
-                                ),
-                            onResume: () => context.read<TransferBloc>().add(
-                                  TransferResumeRequested(task.id),
-                                ),
-                            onCancel: () => context.read<TransferBloc>().add(
-                                  TransferCancelRequested(task.id),
-                                ),
-                            onRetry: () => context.read<TransferBloc>().add(
-                                  TransferRetryRequested(task.id),
-                                ),
-                          ),
-                          if (task.isCompleted)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 20, bottom: 4),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  icon: const Icon(Icons.folder_open, size: 16),
-                                  label: const Text('Open File'),
-                                  onPressed: () => _openFile(task.localPath),
-                                ),
-                              ),
-                            ),
-                        ],
-                      )),
-                  const Divider(height: 24),
+                  const SizedBox(height: 8),
                 ],
 
-                // Server Files Section Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    'Available Files on POS Server',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                if (recentDownloads.isNotEmpty) ...[
+                  SectionHeader(
+                    title: 'Recent on this device',
+                    count: recentDownloads.length,
+                  ),
+                  ...recentDownloads.map(
+                    (task) => TransferItemTile(
+                      task: task,
+                      onResume: () => context.read<TransferBloc>().add(
+                            TransferResumeRequested(task.id),
+                          ),
+                      onCancel: () => context.read<TransferBloc>().add(
+                            TransferCancelRequested(task.id),
+                          ),
+                      onRetry: () => context.read<TransferBloc>().add(
+                            TransferRetryRequested(task.id),
+                          ),
+                      onOpen: task.isCompleted
+                          ? () => _openFile(task.localPath)
+                          : null,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                ],
+
+                const SectionHeader(
+                  title: 'Uploaded files',
+                  subtitle: 'Files available on the POS server',
                 ),
 
-                // Server File List
-                BlocConsumer<FileListBloc, FileListState>(
-                  listener: (context, state) {
-                    if (state is FileListError) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: theme.colorScheme.error,
-                        ),
-                      );
-                    }
-                  },
+                BlocBuilder<FileListBloc, FileListState>(
                   builder: (context, state) {
                     if (state is FileListLoading) {
                       return const Padding(
-                        padding: EdgeInsets.all(40),
+                        padding: EdgeInsets.symmetric(vertical: 48),
                         child: Center(child: CircularProgressIndicator()),
                       );
-                    } else if (state is FileListLoaded) {
-                      if (state.files.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.folder_off_outlined,
-                                  size: 48,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'No files found on server.\nUpload files from the Upload tab.',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
+                    }
 
-                      return ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: state.files.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final file = state.files[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                              child: const Icon(Icons.description_outlined),
-                            ),
-                            title: Text(
-                              file.name,
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            subtitle: Text(file.formattedSize),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.download_rounded),
-                                  tooltip: 'Download file',
-                                  color: theme.colorScheme.primary,
-                                  onPressed: () => _downloadFile(file.name),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  tooltip: 'Delete file',
-                                  color: theme.colorScheme.error,
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Delete File?'),
-                                        content: Text(
-                                            'Are you sure you want to delete "${file.name}" from the POS server?'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(ctx),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              Navigator.pop(ctx);
-                                              context.read<FileListBloc>().add(
-                                                    FileListDeleteRequested(file.name),
-                                                  );
-                                            },
-                                            child: Text(
-                                              'Delete',
-                                              style: TextStyle(
-                                                color: Theme.of(ctx).colorScheme.error,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
+                    if (state is FileListError) {
+                      return StatusPanel(
+                        icon: Icons.cloud_off_rounded,
+                        iconColor: colorScheme.error,
+                        title: 'Couldn’t load files',
+                        message: state.message,
+                        actionLabel: 'Retry',
+                        onAction: () {
+                          context.read<FileListBloc>().add(
+                                const FileListFetchRequested(),
+                              );
                         },
                       );
                     }
+
+                    if (state is FileListLoaded) {
+                      if (state.files.isEmpty) {
+                        return const StatusPanel(
+                          icon: Icons.folder_off_outlined,
+                          title: 'No uploaded files yet',
+                          message:
+                              'Upload a catalog or media file from the Upload tab, then pull to refresh.',
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            for (final file in state.files) ...[
+                              _RemoteFileCard(
+                                file: file,
+                                localTask: _latestDownloadFor(
+                                  downloadTasks,
+                                  file.name,
+                                ),
+                                onDownload: () => _downloadFile(file.name),
+                                onOpen: (path) => _openFile(path),
+                                onDelete: () => _confirmDelete(context, file),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                        ),
+                      );
+                    }
+
                     return const SizedBox.shrink();
                   },
                 ),
@@ -261,6 +254,111 @@ class _DownloadScreenState extends State<DownloadScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RemoteFileCard extends StatelessWidget {
+  final FileItem file;
+  final TransferTask? localTask;
+  final VoidCallback onDownload;
+  final ValueChanged<String> onOpen;
+  final VoidCallback onDelete;
+
+  const _RemoteFileCard({
+    required this.file,
+    required this.localTask,
+    required this.onDownload,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final saved = localTask?.isCompleted == true;
+    final downloading = localTask?.isRunning == true || localTask?.isPaused == true;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              child: Icon(
+                Icons.description_outlined,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    file.formattedSize,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (saved) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Saved to ${friendlyStoragePath(localTask!.localPath)}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ] else if (downloading) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      localTask!.isPaused ? 'Paused' : 'Downloading…',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: localTask!.isPaused
+                            ? AppColors.paused
+                            : colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (saved)
+              TextButton(
+                onPressed: () => onOpen(localTask!.localPath),
+                child: const Text('Open'),
+              )
+            else
+              FilledButton.tonal(
+                onPressed: downloading ? null : onDownload,
+                child: Text(downloading ? 'Busy' : 'Download'),
+              ),
+            IconButton(
+              tooltip: 'Delete from server',
+              onPressed: onDelete,
+              icon: Icon(Icons.delete_outline, color: colorScheme.error),
+            ),
+          ],
+        ),
       ),
     );
   }

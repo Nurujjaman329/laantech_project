@@ -25,14 +25,15 @@ class PersistentTransferBanner extends StatelessWidget {
           right: 16,
           bottom: 16,
           child: Material(
-            elevation: 6,
-            borderRadius: BorderRadius.circular(16),
+            elevation: 4,
+            borderRadius: BorderRadius.circular(14),
             color: theme.colorScheme.primaryContainer,
             child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               onTap: () => PersistentTransferSheet.show(context),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -75,7 +76,7 @@ class PersistentTransferBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: progress > 0 ? progress : null,
                         minHeight: 4,

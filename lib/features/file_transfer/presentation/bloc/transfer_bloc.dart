@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/errors/error_message_mapper.dart';
 import '../../../../core/network/connectivity_service.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../../domain/repositories/file_transfer_repository.dart';
@@ -44,6 +45,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     on<TransferConnectivityChanged>(_onConnectivityChanged);
     on<TransferResumeNetworkPausedRequested>(_onResumeNetworkPaused);
     on<TransferDismissNetworkPromptRequested>(_onDismissNetworkPrompt);
+    on<TransferErrorCleared>(_onErrorCleared);
 
     _transferSubscription = repository.transferStream.listen((task) {
       add(TransferTaskUpdated(task));
@@ -96,7 +98,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       updatedMap[task.id] = task;
       emit(state.copyWith(tasks: updatedMap));
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to start upload: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to start upload.',
+        ),
+      ));
     }
   }
 
@@ -113,7 +120,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       updatedMap[task.id] = task;
       emit(state.copyWith(tasks: updatedMap));
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to start download: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to start download.',
+        ),
+      ));
     }
   }
 
@@ -130,7 +142,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
         emit(state.copyWith(networkPausedTaskIds: remaining));
       }
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to pause transfer: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to pause transfer.',
+        ),
+      ));
     }
   }
 
@@ -145,7 +162,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
           .toList();
       emit(state.copyWith(networkPausedTaskIds: remaining));
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to resume transfer: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to resume transfer.',
+        ),
+      ));
     }
   }
 
@@ -160,7 +182,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
           .toList();
       emit(state.copyWith(networkPausedTaskIds: remaining));
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to cancel transfer: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to cancel transfer.',
+        ),
+      ));
     }
   }
 
@@ -171,7 +198,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     try {
       await retryTransferUseCase(TaskActionParams(event.taskId));
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to retry transfer: $e'));
+      emit(state.copyWith(
+        errorMessage: ErrorMessageMapper.from(
+          e,
+          fallback: 'Failed to retry transfer.',
+        ),
+      ));
     }
   }
 
@@ -242,6 +274,15 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   ) {
     if (state.showNetworkRestoredPrompt) {
       emit(state.copyWith(showNetworkRestoredPrompt: false));
+    }
+  }
+
+  void _onErrorCleared(
+    TransferErrorCleared event,
+    Emitter<TransferState> emit,
+  ) {
+    if (state.errorMessage != null) {
+      emit(state.copyWith(clearError: true));
     }
   }
 

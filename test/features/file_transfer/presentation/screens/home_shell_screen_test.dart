@@ -72,7 +72,7 @@ void main() {
     expect(find.text('Export / Pull'), findsOneWidget);
   });
 
-  testWidgets('tapping Transfers tab displays Transfer Manager screen', (tester) async {
+  testWidgets('tapping Transfers tab displays Transfers screen', (tester) async {
     when(() => mockAuthBloc.state).thenReturn(
       const AuthAuthenticated(
         AuthToken(token: 'dummy_token', username: 'cashier_01'),
@@ -87,7 +87,7 @@ void main() {
     await tester.tap(find.text('Transfers'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Transfer Manager'), findsOneWidget);
+    expect(find.text('Transfers'), findsWidgets);
     expect(find.text('Search transfers by filename...'), findsOneWidget);
     expect(find.text('All (0)'), findsOneWidget);
   });

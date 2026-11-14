@@ -71,7 +71,19 @@ class DioClient {
           message = data;
         }
         if (statusCode == 401) {
-          return AuthException(message: message);
+          return AuthException(
+            message: message.isNotEmpty && message != 'Server error occurred (401)'
+                ? message
+                : 'Session expired or unauthorized. Please sign in again.',
+          );
+        }
+        if (statusCode == 404) {
+          return ServerException(
+            message: message.isNotEmpty && !message.startsWith('Server error')
+                ? message
+                : 'File or resource not found.',
+            statusCode: statusCode,
+          );
         }
         return ServerException(message: message, statusCode: statusCode);
       case DioExceptionType.cancel:

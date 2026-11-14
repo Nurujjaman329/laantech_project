@@ -89,9 +89,26 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       listenWhen: (previous, current) =>
           previous.isOffline != current.isOffline ||
           previous.showNetworkRestoredPrompt !=
-              current.showNetworkRestoredPrompt,
+              current.showNetworkRestoredPrompt ||
+          previous.errorMessage != current.errorMessage,
       listener: (context, state) {
         final messenger = ScaffoldMessenger.of(context);
+        final colorScheme = Theme.of(context).colorScheme;
+
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage!),
+                backgroundColor: colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          context.read<TransferBloc>().add(const TransferErrorCleared());
+          return;
+        }
+
         if (state.isOffline) {
           messenger
             ..hideCurrentSnackBar()
