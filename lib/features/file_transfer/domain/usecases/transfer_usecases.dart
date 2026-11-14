@@ -84,10 +84,12 @@ class StartDownloadUseCase implements UseCase<TransferTask, DownloadParams> {
 
 class TaskActionParams extends Equatable {
   final String taskId;
-  const TaskActionParams(this.taskId);
+  final String? reason;
+
+  const TaskActionParams(this.taskId, {this.reason});
 
   @override
-  List<Object?> get props => [taskId];
+  List<Object?> get props => [taskId, reason];
 }
 
 class PauseTransferUseCase implements UseCase<void, TaskActionParams> {
@@ -97,7 +99,7 @@ class PauseTransferUseCase implements UseCase<void, TaskActionParams> {
 
   @override
   Future<void> call(TaskActionParams params) async {
-    await repository.pauseTransfer(params.taskId);
+    await repository.pauseTransfer(params.taskId, reason: params.reason);
   }
 }
 

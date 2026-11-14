@@ -50,6 +50,7 @@ class TransferTask extends Equatable {
     int? totalBytes,
     double? progress,
     String? errorMessage,
+    bool clearErrorMessage = false,
     DateTime? createdAt,
     DateTime? completedAt,
   }) {
@@ -63,7 +64,8 @@ class TransferTask extends Equatable {
       bytesTransferred: bytesTransferred ?? this.bytesTransferred,
       totalBytes: totalBytes ?? this.totalBytes,
       progress: progress ?? this.progress,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
     );

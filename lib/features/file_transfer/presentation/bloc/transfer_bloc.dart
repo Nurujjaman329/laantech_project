@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/network/connectivity_service.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../../domain/repositories/file_transfer_repository.dart';
 import '../../domain/usecases/transfer_usecases.dart';
@@ -14,8 +15,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   final ResumeTransferUseCase resumeTransferUseCase;
   final CancelTransferUseCase cancelTransferUseCase;
   final RetryTransferUseCase retryTransferUseCase;
+  final ConnectivityService? connectivityService;
 
   StreamSubscription<TransferTask>? _transferSubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  static const String networkPauseReason = 'Paused — network offline';
 
   TransferBloc({
     required this.repository,
@@ -25,6 +30,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     required this.resumeTransferUseCase,
     required this.cancelTransferUseCase,
     required this.retryTransferUseCase,
+    this.connectivityService,
   }) : super(const TransferState()) {
     on<TransferInitializeRequested>(_onInitialize);
     on<TransferTaskUpdated>(_onTaskUpdated);
@@ -35,11 +41,26 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     on<TransferCancelRequested>(_onCancelRequested);
     on<TransferRetryRequested>(_onRetryRequested);
     on<TransferClearCompletedRequested>(_onClearCompletedRequested);
+    on<TransferConnectivityChanged>(_onConnectivityChanged);
+    on<TransferResumeNetworkPausedRequested>(_onResumeNetworkPaused);
+    on<TransferDismissNetworkPromptRequested>(_onDismissNetworkPrompt);
 
-    // Subscribe to transfer stream
     _transferSubscription = repository.transferStream.listen((task) {
       add(TransferTaskUpdated(task));
     });
+
+    final connectivity = connectivityService;
+    if (connectivity != null) {
+      _connectivitySubscription =
+          connectivity.onConnectivityChanged.listen((isOnline) {
+        add(TransferConnectivityChanged(isOnline));
+      });
+      connectivity.isOnline.then((online) {
+        if (!isClosed) {
+          add(TransferConnectivityChanged(online));
+        }
+      });
+    }
   }
 
   void _onInitialize(
@@ -102,6 +123,12 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   ) async {
     try {
       await pauseTransferUseCase(TaskActionParams(event.taskId));
+      final remaining = state.networkPausedTaskIds
+          .where((id) => id != event.taskId)
+          .toList();
+      if (remaining.length != state.networkPausedTaskIds.length) {
+        emit(state.copyWith(networkPausedTaskIds: remaining));
+      }
     } catch (e) {
       emit(state.copyWith(errorMessage: 'Failed to pause transfer: $e'));
     }
@@ -113,6 +140,10 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   ) async {
     try {
       await resumeTransferUseCase(TaskActionParams(event.taskId));
+      final remaining = state.networkPausedTaskIds
+          .where((id) => id != event.taskId)
+          .toList();
+      emit(state.copyWith(networkPausedTaskIds: remaining));
     } catch (e) {
       emit(state.copyWith(errorMessage: 'Failed to resume transfer: $e'));
     }
@@ -124,6 +155,10 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   ) async {
     try {
       await cancelTransferUseCase(TaskActionParams(event.taskId));
+      final remaining = state.networkPausedTaskIds
+          .where((id) => id != event.taskId)
+          .toList();
+      emit(state.copyWith(networkPausedTaskIds: remaining));
     } catch (e) {
       emit(state.copyWith(errorMessage: 'Failed to cancel transfer: $e'));
     }
@@ -149,9 +184,71 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     emit(state.copyWith(tasks: filtered));
   }
 
+  Future<void> _onConnectivityChanged(
+    TransferConnectivityChanged event,
+    Emitter<TransferState> emit,
+  ) async {
+    if (!event.isOnline) {
+      final runningIds = state.tasks.values
+          .where((t) => t.isRunning)
+          .map((t) => t.id)
+          .toList();
+
+      final pausedByNetwork = <String>{...state.networkPausedTaskIds};
+      for (final id in runningIds) {
+        await pauseTransferUseCase(
+          TaskActionParams(id, reason: networkPauseReason),
+        );
+        pausedByNetwork.add(id);
+      }
+
+      emit(state.copyWith(
+        isOffline: true,
+        networkPausedTaskIds: pausedByNetwork.toList(),
+        showNetworkRestoredPrompt: false,
+      ));
+      return;
+    }
+
+    // Back online
+    final hadNetworkPauses = state.networkPausedTaskIds.isNotEmpty;
+    emit(state.copyWith(
+      isOffline: false,
+      showNetworkRestoredPrompt: hadNetworkPauses,
+    ));
+  }
+
+  Future<void> _onResumeNetworkPaused(
+    TransferResumeNetworkPausedRequested event,
+    Emitter<TransferState> emit,
+  ) async {
+    final ids = List<String>.from(state.networkPausedTaskIds);
+    for (final id in ids) {
+      try {
+        await resumeTransferUseCase(TaskActionParams(id));
+      } catch (_) {
+        // Continue remaining tasks; individual failures surface via stream.
+      }
+    }
+    emit(state.copyWith(
+      networkPausedTaskIds: const [],
+      showNetworkRestoredPrompt: false,
+    ));
+  }
+
+  void _onDismissNetworkPrompt(
+    TransferDismissNetworkPromptRequested event,
+    Emitter<TransferState> emit,
+  ) {
+    if (state.showNetworkRestoredPrompt) {
+      emit(state.copyWith(showNetworkRestoredPrompt: false));
+    }
+  }
+
   @override
   Future<void> close() {
     _transferSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     return super.close();
   }
 }

@@ -7,6 +7,7 @@ import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
 
 import '../bloc/transfer_bloc.dart';
+import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
 import '../widgets/persistent_transfer_banner.dart';
 import '../widgets/persistent_transfer_sheet.dart';
@@ -84,7 +85,54 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       const SettingsScreen(),
     ];
 
-    return Scaffold(
+    return BlocListener<TransferBloc, TransferState>(
+      listenWhen: (previous, current) =>
+          previous.isOffline != current.isOffline ||
+          previous.showNetworkRestoredPrompt !=
+              current.showNetworkRestoredPrompt,
+      listener: (context, state) {
+        final messenger = ScaffoldMessenger.of(context);
+        if (state.isOffline) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Network offline — active transfers were paused.',
+                ),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          return;
+        }
+
+        if (state.showNetworkRestoredPrompt) {
+          final count = state.networkPausedTaskIds.length;
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Network restored. Resume $count paused '
+                  '${count == 1 ? 'transfer' : 'transfers'}?',
+                ),
+                duration: const Duration(seconds: 10),
+                action: SnackBarAction(
+                  label: 'Resume',
+                  onPressed: () {
+                    context.read<TransferBloc>().add(
+                          const TransferResumeNetworkPausedRequested(),
+                        );
+                  },
+                ),
+              ),
+            );
+          context.read<TransferBloc>().add(
+                const TransferDismissNetworkPromptRequested(),
+              );
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
@@ -156,14 +204,51 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: screens,
+          BlocBuilder<TransferBloc, TransferState>(
+            buildWhen: (previous, current) =>
+                previous.isOffline != current.isOffline,
+            builder: (context, state) {
+              if (!state.isOffline) return const SizedBox.shrink();
+              return Material(
+                color: colorScheme.errorContainer,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        size: 18,
+                        color: colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'You are offline. Transfers stay paused until network returns.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-          // Global Persistent Transfer Banner visible across all screens
-          const PersistentTransferBanner(),
+          Expanded(
+            child: Stack(
+              children: [
+                IndexedStack(
+                  index: _currentIndex,
+                  children: screens,
+                ),
+                const PersistentTransferBanner(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: BlocBuilder<TransferBloc, TransferState>(
@@ -214,6 +299,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           );
         },
       ),
+    ),
     );
   }
 }

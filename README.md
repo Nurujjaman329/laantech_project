@@ -1,150 +1,155 @@
 # Flutter POS Background Upload & Download Module
 
-A production-grade, resilient file transfer feature module built for a **Point of Sale (POS) SaaS** system using **Clean Architecture**, **Flutter BLoC**, **Dio**, and **System Tray Notifications**.
+**GitHub:** https://github.com/Nurujjaman329/laantech_project
 
-Designed to handle real-world mission-critical transfers—such as importing massive product catalog files (>50MB images, videos, CSV spreadsheets) and exporting extensive audit/financial reports—even when the user navigates across different screens or minimizes the application.
+A resilient file transfer feature module for a **Point of Sale (POS) SaaS** stack using **Clean Architecture**, **Flutter BLoC**, **Dio**, and **system tray notifications**.
+
+Built for real-world scenarios such as importing large product catalogs (>50MB CSV / media) and exporting audit reports—transfers keep running when the operator switches screens, with progress notifications and manual resume after interruption.
+
+**Mock API base URL:** `http://108.136.142.112:90`
+
+---
+
+## Quick start for reviewers
+
+1. `flutter pub get`
+2. `flutter run`
+3. On the login screen either:
+   - **Register** a new username/password, then use the app, or
+   - Tap **1-Click Demo Operator Access** — this performs a **real** `/token` login (auto-registers `pos_demo_operator` on first use) and persists a real Bearer token
+4. Upload via **Upload** tab (pick a file or generate the **>50MB Sample** CSV)
+5. Download via **Download** tab (list → download → open)
+6. Watch progress on-screen, in the floating banner / transfer sheet, and in system notifications  
+   - Notification tap opens the **Upload** or **Download** tab and the transfer sheet
 
 ---
 
 ## Architecture & Key Design Decisions
 
-The application strictly follows **Clean Architecture** with a clear separation of concerns, decoupling UI presentation from network streams and operating system services.
+The app follows **Clean Architecture** with a clear split between UI, domain, and data.
 
 ```
 lib/
 ├── core/
-│   ├── constants/             # API endpoints, timeouts, storage keys
+│   ├── constants/             # API endpoints, timeouts, demo credentials, storage keys
 │   ├── errors/                # Domain Failures & Data Exceptions
-│   ├── network/               # DioClient with Auth interceptor & exception mapping
-│   ├── notifications/         # NotificationService with progress throttling & deep linking
+│   ├── network/               # DioClient (auth interceptor + debug API logs)
+│   ├── notifications/         # NotificationService + TransferNotificationRouter
 │   ├── storage/               # Secure token persistence & SharedPreferences fallback
 │   └── usecase/               # Base UseCase contract
 ├── features/
-│   ├── auth/                  # Authentication module (Domain, Data, Presentation)
-│   │   ├── data/              # AuthRemoteDataSource, AuthRepositoryImpl, AuthTokenModel
-│   │   ├── domain/            # AuthToken entity, AuthRepository, Login/Logout UseCases
-│   │   └── presentation/      # AuthBloc, LoginScreen
-│   └── file_transfer/         # Background Transfer module (Domain, Data, Presentation)
-│       ├── data/              # FileRemoteDataSource, FileTransferRepositoryImpl, FileItemModel
-│       ├── domain/            # TransferTask, FileItem entities, UseCases, TransferRepository
-│       └── presentation/      # TransferBloc, FileListBloc, UI Screens & Widgets
-│           ├── screens/       # DashboardScreen, UploadScreen, DownloadScreen, TransferManagerScreen, SettingsScreen, HomeShellScreen
-│           └── widgets/       # PersistentTransferBanner, PersistentTransferSheet, TransferItemTile
-└── main.dart                  # Dependency injection & root MultiBlocProvider
+│   ├── auth/                  # Authentication (Domain, Data, Presentation)
+│   └── file_transfer/         # Transfer engine + UI (Domain, Data, Presentation)
+│       ├── data/              # FileRemoteDataSource, FileTransferRepositoryImpl
+│       ├── domain/            # TransferTask, FileItem, UseCases, Repository contract
+│       └── presentation/      # TransferBloc, FileListBloc, screens & widgets
+└── main.dart                  # Manual DI & root MultiBlocProvider
 ```
 
-### Complete Screen Architecture
-1. **Login Screen**: Operator authentication with Sign In / Register toggle and a 1-Click Demo Operator button for immediate review.
-2. **Dashboard Screen**: Comprehensive POS SaaS metric center showing terminal sync status, 2x2 statistics grid (Active Syncs, Completed, Failed/Pending, Total Data Volume), quick operational shortcuts, and live active transfer list.
-3. **Upload Screen**: File picker supporting arbitrary local files + 1-Click 50MB sample catalog CSV generator.
-4. **Download Screen**: Remote catalog listing with file search, HTTP Range resumable download triggers, and file open launcher.
-5. **Transfer Manager Screen**: Dedicated full-screen hub featuring quick search, status segmentation chips (`All`, `Active`, `Completed`, `Failed`), batch "Retry All", and granular controls.
-6. **Settings Screen**: POS backend endpoints overview, timeout policies, throttling rules, and operator logout controls.
-7. **Global Transfer Accessibility**: Available anywhere in the app via the persistent floating banner and the AppBar badge sheet.
+### Screens
+1. **Login / Register** — Sign In, Register, and 1-Click Demo (real API auth).
+2. **Dashboard** — Sync stats, shortcuts, and live active transfers.
+3. **Upload** — File picker + 1-click 50MB sample CSV + on-screen progress / pause / resume / retry.
+4. **Download** — Remote file list, resumable download, open completed files.
+5. **Transfer Manager** — Search + status filters (`All` / `Active` / `Completed` / `Failed`), Retry All, per-task controls.
+6. **Settings** — Backend/timeout overview and logout.
+7. **Global chrome** — Persistent floating banner + AppBar badge → transfer sheet (available on every tab).
 
-### Dynamic Theme & Color System
-All UI components use Material 3 semantic theme tokens (`colorScheme.primary`, `colorScheme.surfaceContainerHighest`, `colorScheme.tertiary`, `colorScheme.error`, `colorScheme.outlineVariant`) rather than hardcoded raw hex colors, ensuring proper contrast and light/dark theme adaptation.
-
-### Why This Architecture?
-1. **Single Source of Truth**:
-   The transfer engine (`FileTransferRepositoryImpl`) maintains persistent transfer tasks in a centralized repository decoupled from the UI lifecycle. If an operator initiates a 100MB upload on `UploadScreen` and switches tabs to `DownloadScreen`, the stream continues uninterrupted.
-2. **Predictable State Flow via BLoC**:
-   `TransferBloc` subscribes directly to the repository's `transferStream`. Any byte chunk sent/received or status change (running, paused, completed, failed) automatically updates the UI and recalculates aggregate metrics (such as `overallProgress` and active task counts) without rebuilding unrelated widgets.
-3. **Decoupled System Notifications**:
-   `NotificationService` handles Android/iOS notification channel initialization, badge updates, and notification taps. To prevent OS notification throttling, progress notifications are throttled to a minimum interval of 600ms per task while in-app progress updates remain smooth at 60fps.
+### Why this shape?
+1. **Single source of truth** — `FileTransferRepositoryImpl` owns in-flight Dio transfers and task state. Switching tabs does not cancel work.
+2. **BLoC as UI adapter** — `TransferBloc` listens to `transferStream` and fans progress into screens, banner, and Transfer Manager.
+3. **Notifications as OS surface** — Progress (throttled ~600ms), completion, and error notifications. Taps are routed by payload (`upload_<id>` / `download_<id>`) to the matching tab + sheet (including cold start).
 
 ---
 
 ## Background Execution Strategy & Android Platform Limits
 
-Operating systems have increasingly placed aggressive restrictions on background processing to preserve battery life and memory. Here is how this module navigates those constraints:
+### What “background” means in this submission
 
-### 1. In-App Background vs. App Minimization
-* **Screen Navigation**: Transfers run on asynchronous Dart isolates and Dio stream subscriptions owned by the singleton repository. Navigating or popping screens in Flutter does not destroy the transfer.
-* **App Minimized (Backgrounded)**:
-  * When the app moves to the background, Android and iOS allow open socket connections to finish active transfers for a limited window (~30 seconds on iOS, variable on Android depending on memory pressure).
-  * System tray notifications inform the user of ongoing progress and provide an immediate deep link back to the transfer dashboard upon tap.
+| Scenario | Behavior |
+| :--- | :--- |
+| Switch tabs / leave Upload or Download screen | Transfer **continues** (repository-owned Dio request, not tied to widget lifecycle). |
+| App minimized while process stays alive | Socket may keep running for a limited OS window; ongoing notification shows progress. |
+| Process killed / swipe away from Recents | In-flight sockets die. Tasks persisted in SharedPreferences are restored as **paused** (`Transfer paused (app was closed)`). Operator taps **Resume**. |
+| Download resume after kill / pause | **Byte resume** via `.part` file + HTTP `Range` / 206. |
+| Upload resume after pause / kill | **Restarts from 0%** (mock multipart API has no chunk protocol). |
 
-### 2. Android OS Platform Limits & Mitigations
+Transfers run as **async Dio work on the main Dart isolate**, owned by the repository singleton. This is **not** a separate Dart isolate pool, and **WorkManager / a bound Foreground Service are not implemented** in this version (see Known Limitations).
 
-| Android OS Restriction | Impact on Background Transfers | How This Module Handles It |
+### Android limits (honest mapping)
+
+| Android restriction | Impact | What this module does today |
 | :--- | :--- | :--- |
-| **Doze Mode (Android 6.0+)** | When the device is unplugged, stationary, and screen is off, the OS suspends network access and CPU wakelocks except during periodic maintenance windows. | The app holds a `WAKE_LOCK` permission and displays ongoing notifications. For true multi-hour transfers, apps must request exemption from battery optimizations (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`). |
-| **Android 14+ Foreground Service Types** | Android 14 (API 34+) mandates explicit declarations for any foreground service (`foregroundServiceType="dataSync"`). Uncategorized background services are immediately terminated by the OS. | Declared `<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />` and configured notification channels accordingly. |
-| **Cleartext Traffic Policy (Android 9+)** | Android blocks non-HTTPS HTTP traffic by default, preventing access to raw IP endpoints (`http://108.136.142.112:90`). | Configured `android:usesCleartextTraffic="true"` in `AndroidManifest.xml` to allow communication with the mock REST backend. |
-| **OEM Battery Managers** | Aggressive OEM managers (Xiaomi MIUI, Samsung OneUI, Huawei EMUI) kill background apps within minutes regardless of stock Android specifications. | The UI clearly displays transfer state and notifies operators when a transfer is paused or failed, allowing immediate manual or automatic one-tap resumption. |
+| **Doze / App Standby** | Network/CPU deferred when screen off & idle | Ongoing progress notifications while the process is alive; after kill, paused task + manual Resume. Battery-optimization exemption is **not** requested in code. |
+| **Android 14+ FGS types** | Background work without a typed FGS can be killed | Manifest declares `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_DATA_SYNC` and `WAKE_LOCK` for forward compatibility. **No `<service>` / FGS starter is wired yet** — notifications alone do not create a foreground service. |
+| **Cleartext (Android 9+)** | Blocks plain HTTP by default | `android:usesCleartextTraffic="true"` so the mock `http://108.136.142.112:90` API works. |
+| **OEM battery killers** | May kill the process minutes after minimize | Persist tasks; restore as paused; one-tap Resume. Downloads continue from `.part`. |
+
+`workmanager` is listed as an optional package in the assignment brief; it is **intentionally not used** here. Limits are documented instead of over-claiming headless survival.
 
 ---
 
 ## Resilience & Transfer Mechanics
 
-### Resumable Downloads (HTTP `Range` Header)
-The mock backend supports byte-range requests (`curl -C - ...`). The download engine takes full advantage of this:
-1. When downloading a file (e.g. `catalog.csv`), it writes incoming chunks to `catalog.csv.part`.
-2. If connectivity drops or the user pauses, the file connection is closed cleanly.
-3. On resume:
-   * The app checks the length of `catalog.csv.part` on disk (e.g. 24,500,000 bytes).
-   * It sends a `Range: bytes=24500000-` header to the server.
-   * If the server replies with **HTTP 206 Partial Content**, the app opens an `IOSink` in `FileMode.append` and continues writing from byte 24,500,001 without restarting from 0%.
-   * Upon reaching 100%, the `.part` file is atomic-renamed to its final path and a completion notification is triggered.
+### Resumable downloads (HTTP `Range`)
+1. Chunks write to `{filename}.part` under app documents:  
+   `{ApplicationDocumentsDirectory}/pos_downloads/`
+2. On pause / failure / app kill, the `.part` file remains.
+3. On Resume: send `Range: bytes={existingLength}-`. On **HTTP 206**, append; on full **200**, restart cleanly.
+4. On success: atomic rename `.part` → final file; completion notification; **Open** via `open_filex`.
 
-### Multipart Upload Pausing vs. Resuming
-Standard HTTP multipart (`POST /upload`) does not natively support mid-stream byte-range resumption unless the backend implements a chunking protocol (such as [tus.io](https://tus.io) or AWS S3 multipart).
-* **When Paused**: The app immediately aborts the active stream via a Dio `CancelToken`, marks the task as `Paused`, and cancels the active notification.
-* **When Resumed**: The operator can resume or retry the upload without restarting the app.
+### Multipart upload pause / resume
+- **Pause** — Dio `CancelToken` abort → status `paused`.
+- **Resume / Retry** — restarts the full multipart `POST /upload` from 0% (server constraint, not a client bug).
 
----
+### Errors & poor network
+Friendly mapping for timeouts, offline (`SocketException`), 401, and server errors, with **Retry** on failed tasks. Debug builds also print every API call via `[API]` logs in `DioClient`.
 
-## Global Transfer Dashboard & Floating UI
-
-* **Persistent Floating Banner (`PersistentTransferBanner`)**:
-  Visible across all screens whenever an upload or download is active. Shows aggregate progress, active transfer count, and opens the detailed dashboard on tap.
-* **Expandable Transfers Sheet (`PersistentTransferSheet`)**:
-  Displays full details for all running, paused, failed, and completed transfers, with per-item `Pause`, `Resume`, `Retry`, and `Cancel` controls, plus a "Clear Finished" option.
-* **Deep Linking**:
-  Tapping a completed upload or download notification in the Android system tray launches the app and highlights the relevant item.
+**Connectivity auto-pause:** when the device goes offline, running transfers are paused with reason `Paused — network offline`. When connectivity returns, a snackbar offers **Resume** for those network-paused tasks (manual Pause is left alone). An offline banner also appears under the AppBar.
 
 ---
 
-## Running & Building the Project
+## Global Transfer UI & Notification Deep Links
+
+* **PersistentTransferBanner** — aggregate progress across tabs.
+* **PersistentTransferSheet** — full list with Pause / Resume / Retry / Cancel / Clear Finished.
+* **Notification deep link** — payload `upload_*` → Upload tab; `download_*` → Download tab; otherwise Transfers tab; then opens the transfer sheet. Cold-start launch payload is handled via `getNotificationAppLaunchDetails`.
+
+---
+
+## Running & Building
 
 ### Prerequisites
-- **Flutter SDK**: 3.27+ (Dart 3.13+)
-- **Android SDK**: compileSdk 36, minSdk 21
-- **Java**: JDK 17
+- Flutter SDK 3.27+ (Dart 3.13+)
+- Android SDK: compileSdk 36, minSdk 21
+- JDK 17
 
-### 1. Install Dependencies
+### Commands
 ```bash
 flutter pub get
-```
-
-### 2. Run All Unit & BLoC Tests
-```bash
 flutter test
-```
-*Current test suite: **70 passing tests** covering data sources, repositories, use cases, BLoCs, and widget rendering.*
-
-### 3. Run on Connected Device / Emulator
-```bash
 flutter run
-```
-
-### 4. Build Android Debug APK
-```bash
 flutter build apk --debug
 ```
-*The compiled APK will be located at:*
+
+Debug APK output:
 ```
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
+Current test suite: **84 passing tests** (data sources, repositories, use cases, BLoCs, connectivity, notification router, widgets).
+
+### Demo credentials (1-Click Demo)
+- Username: `pos_demo_operator`
+- Password: `DemoPass123!`  
+Auto-registered on first Demo tap against the live mock API.
+
 ---
 
-## Known Limitations & Future Enhancements
+## Known Limitations & What I’d Improve With More Time
 
-1. **Protocol-Level Upload Resumption (tus.io / S3 Multipart)**:
-   While downloads support native byte resumption via HTTP 206, multipart uploads on this mock server must re-stream from 0%. Supporting a chunked upload protocol would enable byte-level upload resumption.
-2. **WorkManager / Native Background Tasks**:
-   For transfers that must initiate or survive even after the user forcefully swipes the app away from the recent apps switcher, integrating Android `WorkManager` and iOS `BGProcessingTask` with a local SQLite queue (`drift` or `isar`) would provide headless background execution.
-3. **Bandwidth Throttling**:
-   Adding network-quality detection (`connectivity_plus`) to automatically pause transfers on mobile metered data and resume when connected to unmetered Wi-Fi.
+1. **Upload byte-level resume** — needs tus.io / S3 multipart (or similar) on the backend; client currently restarts multipart from 0%.
+2. **True OS background survival** — add Android `WorkManager` + typed `dataSync` Foreground Service, and iOS `BGProcessingTask`, with a durable queue (e.g. Drift/Isar) so transfers can continue or restart after process death without relying only on manual Resume.
+3. **Smarter network policies** — today we auto-pause on any offline and prompt Resume when back; could also pause on metered cellular and prefer Wi‑Fi only.
+4. **Public Downloads folder (optional)** — files currently land in app-private `pos_downloads/` (sensible & permission-light); MediaStore / system Downloads could be added for easier file-manager discovery.
+5. **Clear Finished persistence** — clearing finished tasks in the sheet currently updates UI state; tightening SharedPreferences sync would keep cleared items gone after restart.

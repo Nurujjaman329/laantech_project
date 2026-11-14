@@ -81,3 +81,19 @@ class TransferRetryRequested extends TransferEvent {
 class TransferClearCompletedRequested extends TransferEvent {
   const TransferClearCompletedRequested();
 }
+
+class TransferConnectivityChanged extends TransferEvent {
+  final bool isOnline;
+  const TransferConnectivityChanged(this.isOnline);
+
+  @override
+  List<Object?> get props => [isOnline];
+}
+
+class TransferResumeNetworkPausedRequested extends TransferEvent {
+  const TransferResumeNetworkPausedRequested();
+}
+
+class TransferDismissNetworkPromptRequested extends TransferEvent {
+  const TransferDismissNetworkPromptRequested();
+}

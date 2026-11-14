@@ -349,17 +349,20 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
   }
 
   @override
-  Future<void> pauseTransfer(String taskId) async {
+  Future<void> pauseTransfer(String taskId, {String? reason}) async {
     final task = _tasks[taskId];
     if (task == null || task.status != TransferStatus.running) return;
 
     final token = _cancelTokens[taskId];
     if (token != null && !token.isCancelled) {
-      token.cancel('User requested pause');
+      token.cancel(reason ?? 'User requested pause');
     }
     _cancelTokens.remove(taskId);
 
-    final pausedTask = task.copyWith(status: TransferStatus.paused);
+    final pausedTask = task.copyWith(
+      status: TransferStatus.paused,
+      errorMessage: reason,
+    );
     _emitTask(pausedTask);
 
     final notifId = _notificationId(taskId);
@@ -373,7 +376,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
 
     final runningTask = task.copyWith(
       status: TransferStatus.running,
-      errorMessage: null,
+      clearErrorMessage: true,
     );
     _emitTask(runningTask);
 
@@ -422,7 +425,7 @@ class FileTransferRepositoryImpl implements FileTransferRepository {
 
     final retryingTask = task.copyWith(
       status: TransferStatus.running,
-      errorMessage: null,
+      clearErrorMessage: true,
     );
     _emitTask(retryingTask);
 

@@ -89,9 +89,10 @@ void main() {
   });
 
   test('PauseTransferUseCase delegates to repository.pauseTransfer', () async {
-    when(() => mockRepository.pauseTransfer('t1')).thenAnswer((_) async {});
+    when(() => mockRepository.pauseTransfer(any(), reason: any(named: 'reason')))
+        .thenAnswer((_) async {});
     await pauseTransferUseCase(const TaskActionParams('t1'));
-    verify(() => mockRepository.pauseTransfer('t1')).called(1);
+    verify(() => mockRepository.pauseTransfer('t1', reason: null)).called(1);
   });
 
   test('ResumeTransferUseCase delegates to repository.resumeTransfer', () async {

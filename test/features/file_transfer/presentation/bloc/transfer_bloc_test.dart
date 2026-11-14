@@ -148,4 +148,74 @@ void main() {
       },
     );
   });
+
+  group('TransferBloc connectivity', () {
+    blocTest<TransferBloc, TransferState>(
+      'going offline pauses running tasks and marks isOffline',
+      build: () {
+        when(() => mockPauseTransferUseCase(any())).thenAnswer((_) async {});
+        return transferBloc;
+      },
+      seed: () => TransferState(tasks: {'task_1': sampleTask}),
+      act: (bloc) => bloc.add(const TransferConnectivityChanged(false)),
+      expect: () => [
+        isA<TransferState>()
+            .having((s) => s.isOffline, 'isOffline', true)
+            .having((s) => s.networkPausedTaskIds, 'networkPaused', ['task_1'])
+            .having((s) => s.showNetworkRestoredPrompt, 'prompt', false),
+      ],
+      verify: (_) {
+        verify(
+          () => mockPauseTransferUseCase(
+            const TaskActionParams(
+              'task_1',
+              reason: TransferBloc.networkPauseReason,
+            ),
+          ),
+        ).called(1);
+      },
+    );
+
+    blocTest<TransferBloc, TransferState>(
+      'coming online with network-paused tasks shows resume prompt',
+      build: () => transferBloc,
+      seed: () => TransferState(
+        tasks: {
+          'task_1': sampleTask.copyWith(status: TransferStatus.paused),
+        },
+        isOffline: true,
+        networkPausedTaskIds: const ['task_1'],
+      ),
+      act: (bloc) => bloc.add(const TransferConnectivityChanged(true)),
+      expect: () => [
+        isA<TransferState>()
+            .having((s) => s.isOffline, 'isOffline', false)
+            .having((s) => s.showNetworkRestoredPrompt, 'prompt', true)
+            .having((s) => s.networkPausedTaskIds, 'ids', ['task_1']),
+      ],
+    );
+
+    blocTest<TransferBloc, TransferState>(
+      'TransferResumeNetworkPausedRequested resumes tracked tasks',
+      build: () {
+        when(() => mockResumeTransferUseCase(any())).thenAnswer((_) async {});
+        return transferBloc;
+      },
+      seed: () => const TransferState(
+        networkPausedTaskIds: ['task_1'],
+        showNetworkRestoredPrompt: true,
+      ),
+      act: (bloc) =>
+          bloc.add(const TransferResumeNetworkPausedRequested()),
+      expect: () => [
+        isA<TransferState>()
+            .having((s) => s.networkPausedTaskIds, 'ids', isEmpty)
+            .having((s) => s.showNetworkRestoredPrompt, 'prompt', false),
+      ],
+      verify: (_) {
+        verify(() => mockResumeTransferUseCase(const TaskActionParams('task_1')))
+            .called(1);
+      },
+    );
+  });
 }

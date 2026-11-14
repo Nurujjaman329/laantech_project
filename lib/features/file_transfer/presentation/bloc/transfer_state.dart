@@ -4,10 +4,16 @@ import '../../domain/entities/transfer_task.dart';
 class TransferState extends Equatable {
   final Map<String, TransferTask> tasks;
   final String? errorMessage;
+  final bool isOffline;
+  final List<String> networkPausedTaskIds;
+  final bool showNetworkRestoredPrompt;
 
   const TransferState({
     this.tasks = const {},
     this.errorMessage,
+    this.isOffline = false,
+    this.networkPausedTaskIds = const [],
+    this.showNetworkRestoredPrompt = false,
   });
 
   List<TransferTask> get allTasks => tasks.values.toList()
@@ -34,13 +40,26 @@ class TransferState extends Equatable {
     Map<String, TransferTask>? tasks,
     String? errorMessage,
     bool clearError = false,
+    bool? isOffline,
+    List<String>? networkPausedTaskIds,
+    bool? showNetworkRestoredPrompt,
   }) {
     return TransferState(
       tasks: tasks ?? this.tasks,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isOffline: isOffline ?? this.isOffline,
+      networkPausedTaskIds: networkPausedTaskIds ?? this.networkPausedTaskIds,
+      showNetworkRestoredPrompt:
+          showNetworkRestoredPrompt ?? this.showNetworkRestoredPrompt,
     );
   }
 
   @override
-  List<Object?> get props => [tasks, errorMessage];
+  List<Object?> get props => [
+        tasks,
+        errorMessage,
+        isOffline,
+        networkPausedTaskIds,
+        showNetworkRestoredPrompt,
+      ];
 }

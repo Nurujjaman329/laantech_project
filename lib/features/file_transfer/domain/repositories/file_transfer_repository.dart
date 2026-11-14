@@ -23,8 +23,8 @@ abstract class FileTransferRepository {
     String? customSavePath,
   });
 
-  /// Pause an ongoing transfer
-  Future<void> pauseTransfer(String taskId);
+  /// Pause an ongoing transfer. Optional [reason] is stored on the task.
+  Future<void> pauseTransfer(String taskId, {String? reason});
 
   /// Resume a paused transfer
   Future<void> resumeTransfer(String taskId);

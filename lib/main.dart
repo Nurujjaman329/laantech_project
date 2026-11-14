@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/network/connectivity_service.dart';
 import 'core/network/dio_client.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/notifications/transfer_notification_router.dart';
@@ -55,6 +56,7 @@ void main() async {
 
   // Core Networking
   final dioClient = DioClient(tokenStorage: tokenStorage);
+  final connectivityService = ConnectivityServiceImpl();
 
   // Auth Feature
   final authRemoteDataSource = AuthRemoteDataSourceImpl(dioClient: dioClient);
@@ -104,6 +106,7 @@ void main() async {
             resumeTransferUseCase: resumeTransferUseCase,
             cancelTransferUseCase: cancelTransferUseCase,
             retryTransferUseCase: retryTransferUseCase,
+            connectivityService: connectivityService,
           )..add(const TransferInitializeRequested()),
         ),
         BlocProvider<FileListBloc>(
