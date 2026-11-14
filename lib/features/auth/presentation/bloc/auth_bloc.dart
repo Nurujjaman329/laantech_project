@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../domain/entities/auth_token.dart';
@@ -90,13 +91,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
-    // Instant test operator access
-    const demoToken = AuthToken(
-      token: 'mock_demo_bearer_token_xyz',
-      tokenType: 'Bearer',
-      username: 'demo_operator',
+    const params = LoginParams(
+      username: ApiConstants.demoUsername,
+      password: ApiConstants.demoPassword,
     );
-    emit(const AuthAuthenticated(demoToken));
+
+    try {
+      // Prefer login so repeated Demo taps stay fast once the account exists.
+      AuthToken token;
+      try {
+        token = await loginUseCase(params);
+      } catch (_) {
+        // First-time (or expired) demo account: register, then use returned token.
+        // AuthRemoteDataSource already falls back to login if username is taken.
+        token = await registerUseCase(params);
+      }
+      emit(AuthAuthenticated(token));
+    } on Failure catch (failure) {
+      emit(AuthFailureState(failure.message));
+    } catch (e) {
+      emit(AuthFailureState(e.toString()));
+    }
   }
 
   Future<void> _onAuthLogoutRequested(

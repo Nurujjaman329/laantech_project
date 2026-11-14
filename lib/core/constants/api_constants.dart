@@ -19,4 +19,8 @@ class ApiConstants {
   // Storage Keys
   static const String tokenKey = 'auth_token';
   static const String usernameKey = 'auth_username';
+
+  /// Stable credentials for 1-Click Demo (real API register/login).
+  static const String demoUsername = 'pos_demo_operator';
+  static const String demoPassword = 'DemoPass123!';
 }

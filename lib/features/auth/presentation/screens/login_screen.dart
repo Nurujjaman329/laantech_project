@@ -314,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Configured for http://108.136.142.112:90. You can register above or use 1-Click Demo Mode to evaluate all transfer features.',
+                                'Configured for http://108.136.142.112:90. Register above, or use 1-Click Demo — it performs a real API login (auto-registers the demo operator if needed).',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
