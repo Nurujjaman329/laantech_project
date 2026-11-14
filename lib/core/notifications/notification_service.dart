@@ -5,6 +5,10 @@ typedef NotificationTapCallback = void Function(String? payload);
 
 abstract class NotificationService {
   Future<void> initialize({NotificationTapCallback? onSelectNotification});
+
+  /// Payload that launched the app from a notification tap (cold start), if any.
+  Future<String?> getLaunchPayload();
+
   Future<void> showProgressNotification({
     required int id,
     required String title,
@@ -69,6 +73,16 @@ class NotificationServiceImpl implements NotificationService {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestNotificationsPermission();
     }
+  }
+
+  @override
+  Future<String?> getLaunchPayload() async {
+    final details =
+        await _notificationsPlugin.getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp == true) {
+      return details!.notificationResponse?.payload;
+    }
+    return null;
   }
 
   @override

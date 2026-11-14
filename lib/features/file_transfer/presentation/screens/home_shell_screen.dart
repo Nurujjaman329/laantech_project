@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:laantech_task/core/notifications/transfer_notification_router.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
@@ -16,7 +17,12 @@ import 'transfer_manager_screen.dart';
 import 'upload_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
-  const HomeShellScreen({super.key});
+  final TransferNotificationRouter? notificationRouter;
+
+  const HomeShellScreen({
+    super.key,
+    this.notificationRouter,
+  });
 
   @override
   State<HomeShellScreen> createState() => _HomeShellScreenState();
@@ -24,6 +30,38 @@ class HomeShellScreen extends StatefulWidget {
 
 class _HomeShellScreenState extends State<HomeShellScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.notificationRouter?.pending.addListener(_onNotificationDeepLink);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onNotificationDeepLink();
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.notificationRouter?.pending.removeListener(_onNotificationDeepLink);
+    super.dispose();
+  }
+
+  void _onNotificationDeepLink() {
+    final router = widget.notificationRouter;
+    final link = router?.pending.value;
+    if (router == null || link == null || !mounted) return;
+
+    _navigateToTab(link.tabIndex);
+
+    if (link.showSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        PersistentTransferSheet.show(context);
+      });
+    }
+
+    router.consume();
+  }
 
   void _navigateToTab(int index) {
     if (index >= 0 && index < 5) {

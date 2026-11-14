@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/network/dio_client.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/notifications/transfer_notification_router.dart';
 import 'core/storage/token_storage.dart';
 
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
@@ -25,9 +26,10 @@ import 'features/file_transfer/presentation/bloc/file_list_bloc.dart';
 import 'features/file_transfer/presentation/bloc/transfer_bloc.dart';
 import 'features/file_transfer/presentation/bloc/transfer_event.dart';
 import 'features/file_transfer/presentation/screens/home_shell_screen.dart';
-import 'features/file_transfer/presentation/widgets/persistent_transfer_sheet.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+final TransferNotificationRouter transferNotificationRouter =
+    TransferNotificationRouter();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,12 +44,14 @@ void main() async {
 
   final notificationService = NotificationServiceImpl();
   await notificationService.initialize(
-    onSelectNotification: (payload) {
-      if (rootNavigatorKey.currentContext != null) {
-        PersistentTransferSheet.show(rootNavigatorKey.currentContext!);
-      }
-    },
+    onSelectNotification: transferNotificationRouter.handlePayload,
   );
+
+  // Cold start: app opened by tapping a transfer notification.
+  final launchPayload = await notificationService.getLaunchPayload();
+  if (launchPayload != null) {
+    transferNotificationRouter.handlePayload(launchPayload);
+  }
 
   // Core Networking
   final dioClient = DioClient(tokenStorage: tokenStorage);
@@ -144,7 +148,9 @@ class PosTransferApp extends StatelessWidget {
       home: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthAuthenticated) {
-            return const HomeShellScreen();
+            return HomeShellScreen(
+              notificationRouter: transferNotificationRouter,
+            );
           } else if (state is AuthUnauthenticated || state is AuthFailureState) {
             return LoginScreen(
               onLoginSuccess: () {},

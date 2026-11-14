@@ -7,7 +7,6 @@ import 'package:laantech_task/features/auth/domain/entities/auth_token.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_event.dart';
 import 'package:laantech_task/features/auth/presentation/bloc/auth_state.dart';
-import 'package:laantech_task/features/file_transfer/domain/entities/transfer_task.dart';
 import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_bloc.dart';
 import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_event.dart';
 import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list_state.dart';
@@ -47,7 +46,7 @@ void main() {
   testWidgets('renders HomeShellScreen with all 5 navigation destinations and default Dashboard', (tester) async {
     when(() => mockAuthBloc.state).thenReturn(
       const AuthAuthenticated(
-        authToken: AuthToken(accessToken: 'dummy_token', username: 'cashier_01'),
+        AuthToken(token: 'dummy_token', username: 'cashier_01'),
       ),
     );
     when(() => mockTransferBloc.state).thenReturn(const TransferState());
@@ -76,7 +75,7 @@ void main() {
   testWidgets('tapping Transfers tab displays Transfer Manager screen', (tester) async {
     when(() => mockAuthBloc.state).thenReturn(
       const AuthAuthenticated(
-        authToken: AuthToken(accessToken: 'dummy_token', username: 'cashier_01'),
+        AuthToken(token: 'dummy_token', username: 'cashier_01'),
       ),
     );
     when(() => mockTransferBloc.state).thenReturn(const TransferState());
