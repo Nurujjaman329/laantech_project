@@ -102,6 +102,7 @@ The application strictly adheres to **Clean Architecture** principles:
 lib/
 ├── core/
 │   ├── constants/             # API endpoints, timeouts, upload limits, storage keys
+│   ├── di/                    # Centralized Dependency Injection Container (AppDependencies)
 │   ├── errors/                # Failures, exceptions, ErrorMessageMapper
 │   ├── network/               # DioClient (auth interceptor, debug API logs), ConnectivityService
 │   ├── notifications/         # NotificationService, Foreground Service, tap router
@@ -115,7 +116,8 @@ lib/
 │       ├── data/              # FileRemoteDataSource, FileTransferRepositoryImpl
 │       ├── domain/            # TransferTask, FileItem, UseCases, Repository interface
 │       └── presentation/      # TransferBloc, FileListBloc, screens, widgets
-└── main.dart                  # Centralized DI & MultiBlocProvider initialization
+├── app.dart                   # Root MaterialApp widget, theme & routing configuration
+└── main.dart                  # App bootstrap, native channel setup & runApp
 ```
 
 ### Why This Design?

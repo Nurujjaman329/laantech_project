@@ -11,7 +11,7 @@ import 'package:laantech_task/features/file_transfer/presentation/bloc/file_list
 import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_event.dart';
 import 'package:laantech_task/features/file_transfer/presentation/bloc/transfer_state.dart';
-import 'package:laantech_task/main.dart';
+import 'package:laantech_task/app.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 class MockTransferBloc extends MockBloc<TransferEvent, TransferState> implements TransferBloc {}
