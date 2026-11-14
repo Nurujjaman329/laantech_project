@@ -450,14 +450,16 @@ class _PosAuthPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.posPanel : Colors.white,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.28),
             blurRadius: 28,
             offset: const Offset(0, 16),
           ),
@@ -470,18 +472,18 @@ class _PosAuthPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.lock_person_rounded,
                   size: 18,
-                  color: AppColors.posInk,
+                  color: isDark ? AppColors.posAccent : AppColors.posInk,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   isRegisterMode ? 'Create operator account' : 'Terminal login',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
-                    color: AppColors.posInk,
+                    color: isDark ? Colors.white : AppColors.posInk,
                   ),
                 ),
               ],
@@ -623,16 +625,19 @@ class _PosModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLight,
+        color: isDark ? AppColors.posNavy : AppColors.surfaceContainerLight,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           Expanded(
             child: _tab(
+              context: context,
               label: 'Sign in',
               selected: !isRegisterMode,
               onTap: enabled ? () => onChanged(false) : null,
@@ -640,6 +645,7 @@ class _PosModeSwitch extends StatelessWidget {
           ),
           Expanded(
             child: _tab(
+              context: context,
               label: 'Register',
               selected: isRegisterMode,
               onTap: enabled ? () => onChanged(true) : null,
@@ -651,12 +657,18 @@ class _PosModeSwitch extends StatelessWidget {
   }
 
   Widget _tab({
+    required BuildContext context,
     required String label,
     required bool selected,
     required VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedBg = isDark ? AppColors.posPanel : Colors.white;
+    final selectedText = isDark ? Colors.white : AppColors.posInk;
+    final unselectedText = isDark ? Colors.white60 : AppColors.secondary;
+
     return Material(
-      color: selected ? Colors.white : Colors.transparent,
+      color: selected ? selectedBg : Colors.transparent,
       borderRadius: BorderRadius.circular(11),
       elevation: selected ? 1.5 : 0,
       shadowColor: Colors.black26,
@@ -670,7 +682,7 @@ class _PosModeSwitch extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-              color: selected ? AppColors.posInk : AppColors.secondary,
+              color: selected ? selectedText : unselectedText,
             ),
           ),
         ),

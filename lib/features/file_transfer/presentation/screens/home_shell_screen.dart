@@ -354,12 +354,13 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       bottomNavigationBar: BlocBuilder<TransferBloc, TransferState>(
         builder: (context, state) {
           final activeCount = state.activeTasks.length;
+          final colorScheme = Theme.of(context).colorScheme;
 
           return NavigationBar(
             selectedIndex: _currentIndex,
             elevation: 2,
-            backgroundColor: Colors.white,
-            indicatorColor: AppColors.posInk.withValues(alpha: 0.12),
+            backgroundColor: colorScheme.surface,
+            indicatorColor: colorScheme.primary.withValues(alpha: 0.15),
             onDestinationSelected: _navigateToTab,
             destinations: [
               const NavigationDestination(
